@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import mongoose from 'mongoose';
@@ -9,9 +8,6 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { INITIAL_EVENTS } from './src/data/mockEvents.js';
 import { calculateDistance } from './src/utils/distance.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nearevent_jwt_secret_key_2026';
 
