@@ -14,6 +14,7 @@ interface MyEventsViewProps {
   onCreateNewClick: () => void;
   onEditEvent?: (event: EventItem) => void;
   onDeleteEvent?: (eventId: string) => void;
+  onOpenAuth?: () => void;
 }
 
 export const MyEventsView: React.FC<MyEventsViewProps> = ({
@@ -27,12 +28,19 @@ export const MyEventsView: React.FC<MyEventsViewProps> = ({
   onCreateNewClick,
   onEditEvent,
   onDeleteEvent,
+  onOpenAuth,
 }) => {
-  const [activeTab, setActiveTab] = useState<'bookmarks' | 'registered' | 'created'>('bookmarks');
+  const [activeTab, setActiveTab] = useState<'bookmarks' | 'registered' | 'created'>('created');
 
   const bookmarkedEvents = allEvents.filter((e) => bookmarkedIds.includes(e.id));
   const registeredEvents = allEvents.filter((e) => registeredIds.includes(e.id));
-  const createdEventsList = myCreatedEvents.length > 0 ? myCreatedEvents : allEvents.filter((e) => e.source === 'user' || (user && e.createdByEmail === user.email));
+  
+  // Combine myCreatedEvents and user created fallback
+  const createdEventsList = user 
+    ? (myCreatedEvents.length > 0 
+        ? myCreatedEvents 
+        : allEvents.filter((e) => e.source === 'user' || (e.createdByEmail && e.createdByEmail.toLowerCase() === user.email.toLowerCase())))
+    : myCreatedEvents;
 
   return (
     <div className="py-8 space-y-6">
@@ -145,27 +153,80 @@ export const MyEventsView: React.FC<MyEventsViewProps> = ({
         )}
 
         {activeTab === 'created' && (
-          createdEventsList.length > 0 ? (
-            createdEventsList.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                onViewDetails={onViewDetails}
-                isBookmarked={bookmarkedIds.includes(event.id)}
-                onToggleBookmark={onToggleBookmark}
-                onEdit={onEditEvent}
-                onDelete={onDeleteEvent}
-                showStatusBadge={true}
-              />
-            ))
-          ) : (
-            <div className="bg-white p-12 text-center rounded-3xl border border-slate-200">
-              <p className="text-sm font-bold text-slate-700">No events created yet</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Click "Create New Event" to publish your first community event.
-              </p>
+          <div className="space-y-4">
+            {/* Status Guide Info Banner */}
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-xs space-y-2">
+              <div className="font-bold text-blue-900 flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-blue-600" />
+                <span>Event Approval & Moderation Status Guide:</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-700">
+                <div className="flex items-center gap-1.5 bg-white/90 p-2 rounded-xl border border-blue-100">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
+                  <span><strong>⏳ Pending:</strong> Submitted & awaiting Admin review</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/90 p-2 rounded-xl border border-blue-100">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span><strong>✓ Approved:</strong> Published & visible to nearby users</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/90 p-2 rounded-xl border border-blue-100">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span>
+                  <span><strong>✕ Rejected:</strong> Declined by Admin</span>
+                </div>
+              </div>
             </div>
-          )
+
+            {!user && (
+              <div className="p-4 bg-amber-50 border border-amber-200/90 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-amber-900">
+                <div className="space-y-0.5">
+                  <p className="font-bold text-amber-900">Log in to keep events synced</p>
+                  <p className="text-amber-800">Please log in or register so your created events stay saved under your account.</p>
+                </div>
+                {onOpenAuth && (
+                  <button
+                    onClick={onOpenAuth}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs shrink-0 transition-colors shadow-2xs"
+                  >
+                    Log In / Register
+                  </button>
+                )}
+              </div>
+            )}
+
+            {createdEventsList.length > 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-2xs">
+                {createdEventsList.map((event) => (
+                  <EventCard
+                    key={event.id}
+                    event={event}
+                    onViewDetails={onViewDetails}
+                    isBookmarked={bookmarkedIds.includes(event.id)}
+                    onToggleBookmark={onToggleBookmark}
+                    onEdit={onEditEvent}
+                    onDelete={onDeleteEvent}
+                    showStatusBadge={true}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white p-10 text-center rounded-3xl border border-slate-200 space-y-3">
+                <Calendar className="w-10 h-10 text-slate-300 mx-auto" />
+                <div>
+                  <p className="text-sm font-bold text-slate-700">No events created yet</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Click "Create New Event" to publish your first community event on NearEvent.
+                  </p>
+                </div>
+                <button
+                  onClick={onCreateNewClick}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs inline-flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create First Event</span>
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

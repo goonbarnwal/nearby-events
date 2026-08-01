@@ -429,11 +429,16 @@ export default function App() {
             onViewDetails={(evt) => setSelectedEvent(evt)}
             onToggleBookmark={handleToggleBookmark}
             onCreateNewClick={() => {
-              setEditingEvent(null);
-              setCreateModalOpen(true);
+              if (!user) {
+                setAuthModalOpen(true);
+              } else {
+                setEditingEvent(null);
+                setCreateModalOpen(true);
+              }
             }}
             onEditEvent={handleEditEventClick}
             onDeleteEvent={handleDeleteEvent}
+            onOpenAuth={() => setAuthModalOpen(true)}
           />
         )}
 

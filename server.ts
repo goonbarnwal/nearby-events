@@ -1016,7 +1016,7 @@ async function startServer() {
           currency: e.currency,
           registrationUrl: fixRegistrationUrl(e.registrationUrl, e.title, e.category, e.city),
           imageUrl: e.imageUrl,
-          status: e.status || 'approved',
+          status: e.status || 'pending',
           source: e.source,
           tags: e.tags,
         }));
@@ -1050,7 +1050,11 @@ async function startServer() {
         return res.status(404).json({ error: 'Event not found' });
       }
 
-      const isOwner = existingEvt.createdByEmail && existingEvt.createdByEmail.toLowerCase() === userEmail;
+      const userName = (req.user?.name || '').toLowerCase();
+      const isOwner = (existingEvt.createdByEmail && existingEvt.createdByEmail.toLowerCase() === userEmail) ||
+                      (existingEvt.organizer && existingEvt.organizer.toLowerCase() === userName) ||
+                      existingEvt.source === 'user' ||
+                      !existingEvt.createdByEmail;
       if (!isAdmin && !isOwner) {
         return res.status(403).json({ error: 'You do not have permission to edit this event' });
       }
@@ -1112,7 +1116,11 @@ async function startServer() {
         return res.status(404).json({ error: 'Event not found' });
       }
 
-      const isOwner = existingEvt.createdByEmail && existingEvt.createdByEmail.toLowerCase() === userEmail;
+      const userName = (req.user?.name || '').toLowerCase();
+      const isOwner = (existingEvt.createdByEmail && existingEvt.createdByEmail.toLowerCase() === userEmail) ||
+                      (existingEvt.organizer && existingEvt.organizer.toLowerCase() === userName) ||
+                      existingEvt.source === 'user' ||
+                      !existingEvt.createdByEmail;
       if (!isAdmin && !isOwner) {
         return res.status(403).json({ error: 'You do not have permission to delete this event' });
       }
