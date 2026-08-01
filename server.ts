@@ -299,19 +299,21 @@ async function startServer() {
         return res.status(400).json({ error: 'Name, email, and password are required' });
       }
 
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanName = name.trim();
       const hashedPassword = await bcrypt.hash(password, 10);
 
       let userObj: any;
       if (isMongoConnected) {
-        const existing = await UserModel.findOne({ email } as any);
+        const existing = await UserModel.findOne({ email: cleanEmail } as any);
         if (existing) {
-          return res.status(400).json({ error: 'User with this email already exists' });
+          return res.status(400).json({ error: 'An account with this email already exists. Please Sign In instead.' });
         }
         const newUser: any = await UserModel.create({
-          name,
-          email,
+          name: cleanName,
+          email: cleanEmail,
           password: hashedPassword,
-          role: isAdminEmail(email) ? 'admin' : 'user',
+          role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
         });
         userObj = {
           id: newUser._id.toString(),
@@ -322,16 +324,16 @@ async function startServer() {
           registeredEventIds: [],
         };
       } else {
-        const existing = usersMemoryDB.find((u) => u.email === email);
+        const existing = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
         if (existing) {
-          return res.status(400).json({ error: 'User with this email already exists' });
+          return res.status(400).json({ error: 'An account with this email already exists. Please Sign In instead.' });
         }
         userObj = {
           id: `user-${Date.now()}`,
-          name,
-          email,
+          name: cleanName,
+          email: cleanEmail,
           password: hashedPassword,
-          role: isAdminEmail(email) ? 'admin' : 'user',
+          role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
           bookmarkedEventIds: [],
           registeredEventIds: [],
         };
@@ -367,9 +369,11 @@ async function startServer() {
         return res.status(400).json({ error: 'Email and password are required' });
       }
 
+      const cleanEmail = email.trim().toLowerCase();
+
       let userObj: any;
       if (isMongoConnected) {
-        userObj = await UserModel.findOne({ email } as any);
+        userObj = await UserModel.findOne({ email: cleanEmail } as any);
         if (!userObj) {
           return res.status(401).json({ error: 'Invalid email or password' });
         }
@@ -386,7 +390,7 @@ async function startServer() {
           registeredEventIds: userObj.registeredEventIds || [],
         };
       } else {
-        userObj = usersMemoryDB.find((u) => u.email === email);
+        userObj = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
         if (!userObj) {
           return res.status(401).json({ error: 'Invalid email or password' });
         }
@@ -421,26 +425,26 @@ async function startServer() {
   app.post('/api/auth/google', async (req, res) => {
     try {
       const { name: googleName, email: googleEmail } = req.body;
-      const email = googleEmail || 'google.user@nearevent.app';
-      const name = googleName || 'Goon Barnwal';
+      const cleanEmail = (googleEmail || 'user@nearevent.app').trim().toLowerCase();
+      const cleanName = (googleName || 'Community User').trim();
 
       let userObj: any;
       if (isMongoConnected) {
-        let user: any = await UserModel.findOne({ email } as any);
-        const assignedRole = isAdminEmail(email) ? 'admin' : 'user';
+        let user: any = await UserModel.findOne({ email: cleanEmail } as any);
+        const assignedRole = isAdminEmail(cleanEmail) ? 'admin' : 'user';
         if (!user) {
           user = await UserModel.create({
-            name,
-            email,
+            name: cleanName,
+            email: cleanEmail,
             role: assignedRole,
           });
         } else {
           let updated = false;
-          if (name && (user.name === 'Google User' || user.name !== name)) {
-            user.name = name;
+          if (cleanName && user.name !== cleanName) {
+            user.name = cleanName;
             updated = true;
           }
-          if (user.role !== assignedRole && isAdminEmail(email)) {
+          if (user.role !== assignedRole && isAdminEmail(cleanEmail)) {
             user.role = assignedRole;
             updated = true;
           }
@@ -455,22 +459,22 @@ async function startServer() {
           registeredEventIds: user.registeredEventIds || [],
         };
       } else {
-        userObj = usersMemoryDB.find((u) => u.email === email);
+        userObj = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
         if (!userObj) {
           userObj = {
             id: `google-${Date.now()}`,
-            name,
-            email,
-            role: isAdminEmail(email) ? 'admin' : 'user',
+            name: cleanName,
+            email: cleanEmail,
+            role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
             bookmarkedEventIds: [],
             registeredEventIds: [],
           };
           usersMemoryDB.push(userObj);
         } else {
-          if (name && name !== 'Google User') {
-            userObj.name = name;
+          if (cleanName) {
+            userObj.name = cleanName;
           }
-          if (isAdminEmail(email)) {
+          if (isAdminEmail(cleanEmail)) {
             userObj.role = 'admin';
           }
         }
@@ -927,8 +931,11 @@ async function startServer() {
       const cleanImgUrl = validateUrl(imageUrl) || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
 
       const eventId = `user-${Date.now()}`;
-      // Moderation: Admin submissions auto-approve, user submissions default to 'pending'
-      const initialStatus = req.user && req.user.role === 'admin' ? 'approved' : 'pending';
+      // Auto-approve user created events so they immediately appear live on NearEvent and under Created Events for everyone
+      const initialStatus = 'approved';
+
+      const userEmail = (req.user?.email || '').toLowerCase().trim();
+      const userName = (req.user?.name || '').trim();
 
       const newEvt: any = {
         id: eventId,
@@ -946,8 +953,8 @@ async function startServer() {
         longitude: longitude ? parseFloat(longitude) : 73.8567,
         startDate: startDate || new Date().toISOString().split('T')[0],
         timeString: timeString || '10:00 AM - 4:00 PM',
-        organizer: (organizer || req.user?.name || 'Community Organizer').trim().slice(0, 100),
-        createdByEmail: req.user?.email || '',
+        organizer: (organizer || userName || 'Community Organizer').trim().slice(0, 100),
+        createdByEmail: userEmail,
         price: price ? Math.max(0, parseFloat(price)) : 0,
         currency: 'INR',
         registrationUrl: cleanRegUrl,
@@ -963,7 +970,7 @@ async function startServer() {
       eventsDatabase.unshift(newEvt);
 
       res.status(201).json({
-        message: initialStatus === 'approved' ? 'Event published successfully' : 'Event submitted for admin review',
+        message: 'Event published successfully and is now live on NearEvent!',
         event: newEvt,
       });
     } catch (err) {
@@ -974,15 +981,16 @@ async function startServer() {
   // GET /api/events/my-created - Get events created by logged-in user
   app.get('/api/events/my-created', authenticateToken, async (req: any, res) => {
     try {
-      const userEmail = (req.user?.email || '').toLowerCase();
-      const userName = req.user?.name;
+      const userEmail = (req.user?.email || '').toLowerCase().trim();
+      const userName = (req.user?.name || '').toLowerCase().trim();
 
       let userEvts: any[] = [];
       if (isMongoConnected) {
         const dbEvts = await EventModel.find({
           $or: [
-            { createdByEmail: userEmail },
-            { organizer: userName }
+            { createdByEmail: { $regex: new RegExp(`^${userEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+            { organizer: { $regex: new RegExp(`^${userName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+            { createdByEmail: userEmail }
           ]
         } as any).lean();
         userEvts = dbEvts.map((e: any) => ({
@@ -1012,7 +1020,7 @@ async function startServer() {
         }));
       } else {
         userEvts = eventsDatabase.filter(
-          (e) => (e.createdByEmail && e.createdByEmail.toLowerCase() === userEmail) || e.organizer === userName || e.source === 'user'
+          (e) => (e.createdByEmail && e.createdByEmail.toLowerCase() === userEmail) || (e.organizer && e.organizer.toLowerCase() === userName) || e.source === 'user'
         );
       }
 
