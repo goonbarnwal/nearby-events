@@ -931,8 +931,8 @@ async function startServer() {
       const cleanImgUrl = validateUrl(imageUrl) || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
 
       const eventId = `user-${Date.now()}`;
-      // Auto-approve user created events so they immediately appear live on NearEvent and under Created Events for everyone
-      const initialStatus = 'approved';
+      // Moderation: Admin submissions auto-approve, normal user submissions default to 'pending'
+      const initialStatus = req.user && req.user.role === 'admin' ? 'approved' : 'pending';
 
       const userEmail = (req.user?.email || '').toLowerCase().trim();
       const userName = (req.user?.name || '').trim();
@@ -970,7 +970,9 @@ async function startServer() {
       eventsDatabase.unshift(newEvt);
 
       res.status(201).json({
-        message: 'Event published successfully and is now live on NearEvent!',
+        message: initialStatus === 'approved' 
+          ? 'Event published successfully and is now live on NearEvent!' 
+          : 'Event submitted successfully! It is now pending admin approval before going live on NearEvent.',
         event: newEvt,
       });
     } catch (err) {
