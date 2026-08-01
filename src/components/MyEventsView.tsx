@@ -35,12 +35,35 @@ export const MyEventsView: React.FC<MyEventsViewProps> = ({
   const bookmarkedEvents = allEvents.filter((e) => bookmarkedIds.includes(e.id));
   const registeredEvents = allEvents.filter((e) => registeredIds.includes(e.id));
   
-  // Combine myCreatedEvents and user created fallback
-  const createdEventsList = user 
-    ? (myCreatedEvents.length > 0 
-        ? myCreatedEvents 
-        : allEvents.filter((e) => e.source === 'user' || (e.createdByEmail && e.createdByEmail.toLowerCase() === user.email.toLowerCase())))
-    : myCreatedEvents;
+  // Combine myCreatedEvents, localStorage, and user created fallback
+  const getLocalCreatedEvents = (): EventItem[] => {
+    try {
+      const raw = localStorage.getItem('nearevent_local_created_events');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const localCreatedEvents = getLocalCreatedEvents();
+  const createdEventsMap = new Map<string, EventItem>();
+
+  // 1. Local storage created events
+  localCreatedEvents.forEach((e) => createdEventsMap.set(e.id, e));
+
+  // 2. Props myCreatedEvents
+  myCreatedEvents.forEach((e) => createdEventsMap.set(e.id, e));
+
+  // 3. Fallback matching allEvents by source or createdByEmail
+  allEvents.forEach((e) => {
+    if (e.source === 'user' || (user && e.createdByEmail && e.createdByEmail.toLowerCase() === user.email.toLowerCase())) {
+      if (!createdEventsMap.has(e.id)) {
+        createdEventsMap.set(e.id, e);
+      }
+    }
+  });
+
+  const createdEventsList = Array.from(createdEventsMap.values());
 
   return (
     <div className="py-8 space-y-6">

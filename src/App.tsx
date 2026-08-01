@@ -73,20 +73,39 @@ export default function App() {
     }
   }, []);
 
-  // Refresh user created events
-  const refreshUserCreatedEvents = async () => {
-    if (user) {
-      const created = await fetchMyCreatedEvents();
-      setMyCreatedEvents(created);
+  // Local Storage Helpers for Created Events
+  const getLocalCreatedEvents = (): EventItem[] => {
+    try {
+      const raw = localStorage.getItem('nearevent_local_created_events');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      refreshUserCreatedEvents();
-    } else {
-      setMyCreatedEvents([]);
+  const saveLocalCreatedEvents = (events: EventItem[]) => {
+    try {
+      localStorage.setItem('nearevent_local_created_events', JSON.stringify(events));
+    } catch (err) {
+      console.warn('Failed to save local created events:', err);
     }
+  };
+
+  // Refresh user created events
+  const refreshUserCreatedEvents = async () => {
+    const localEvts = getLocalCreatedEvents();
+    let serverEvts: EventItem[] = [];
+    if (user) {
+      serverEvts = await fetchMyCreatedEvents();
+    }
+    const evtMap = new Map<string, EventItem>();
+    localEvts.forEach((e) => evtMap.set(e.id, e));
+    serverEvts.forEach((e) => evtMap.set(e.id, e));
+    setMyCreatedEvents(Array.from(evtMap.values()));
+  };
+
+  useEffect(() => {
+    refreshUserCreatedEvents();
   }, [user, activeTab]);
 
   // 1. Browser Geolocation API detection on initial mount
@@ -194,26 +213,58 @@ export default function App() {
   const handleCreateEventSubmit = async (eventData: Partial<EventItem>) => {
     if (editingEvent) {
       const updated = await updateEvent(editingEvent.id, eventData);
-      if (updated) {
-        setAllEvents((prev) => prev.map((e) => (e.id === editingEvent.id ? updated : e)));
-        setMyCreatedEvents((prev) => prev.map((e) => (e.id === editingEvent.id ? updated : e)));
-        setEditingEvent(null);
-        setCreateModalOpen(false);
-        refreshUserCreatedEvents();
-        loadEventsData();
-      }
+      const targetEvt: EventItem = updated || ({ ...editingEvent, ...eventData } as EventItem);
+
+      setAllEvents((prev) => prev.map((e) => (e.id === editingEvent.id ? targetEvt : e)));
+      setMyCreatedEvents((prev) => prev.map((e) => (e.id === editingEvent.id ? targetEvt : e)));
+
+      const updatedLocal = getLocalCreatedEvents().map((e) => (e.id === editingEvent.id ? targetEvt : e));
+      saveLocalCreatedEvents(updatedLocal);
+
+      setEditingEvent(null);
+      setCreateModalOpen(false);
+      refreshUserCreatedEvents();
+      loadEventsData();
     } else {
       const created = await createEvent(eventData);
-      if (created) {
-        if (created.status === 'approved') {
-          setAllEvents((prev) => [created, ...prev]);
-        }
-        setMyCreatedEvents((prev) => [created, ...prev]);
-        setCreateModalOpen(false);
-        setActiveTab('my-events');
-        refreshUserCreatedEvents();
-        loadEventsData();
+      const newEvt: EventItem = created || ({
+        id: `user-${Date.now()}`,
+        title: eventData.title || 'Community Event',
+        description: eventData.description || '',
+        category: eventData.category || 'Tech',
+        subtype: eventData.subtype || 'Meetup',
+        venue: eventData.venue || 'City Center',
+        address: eventData.address || '',
+        city: eventData.city || 'Pune',
+        state: eventData.state || 'Maharashtra',
+        country: eventData.country || 'India',
+        latitude: eventData.latitude || 18.5204,
+        longitude: eventData.longitude || 73.8567,
+        startDate: eventData.startDate || new Date().toISOString().split('T')[0],
+        timeString: eventData.timeString || '10:00 AM',
+        organizer: eventData.organizer || (user?.name || 'Community Organizer'),
+        price: eventData.price || 0,
+        currency: 'INR',
+        registrationUrl: eventData.registrationUrl || 'https://near-event.app',
+        imageUrl: eventData.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
+        status: 'pending',
+        source: 'user',
+        tags: eventData.tags || ['Community'],
+        createdByEmail: user?.email,
+      } as EventItem);
+
+      if (newEvt.status === 'approved') {
+        setAllEvents((prev) => [newEvt, ...prev]);
       }
+      setMyCreatedEvents((prev) => [newEvt, ...prev.filter((e) => e.id !== newEvt.id)]);
+
+      const currentLocal = getLocalCreatedEvents();
+      saveLocalCreatedEvents([newEvt, ...currentLocal.filter((e) => e.id !== newEvt.id)]);
+
+      setCreateModalOpen(false);
+      setActiveTab('my-events');
+      refreshUserCreatedEvents();
+      loadEventsData();
     }
   };
 
@@ -226,13 +277,15 @@ export default function App() {
   // Delete Event Handler
   const handleDeleteEvent = async (eventId: string) => {
     if (window.confirm('Are you sure you want to delete this event?')) {
-      const success = await deleteEvent(eventId);
-      if (success) {
-        setAllEvents((prev) => prev.filter((e) => e.id !== eventId));
-        setMyCreatedEvents((prev) => prev.filter((e) => e.id !== eventId));
-        refreshUserCreatedEvents();
-        loadEventsData();
-      }
+      await deleteEvent(eventId);
+      setAllEvents((prev) => prev.filter((e) => e.id !== eventId));
+      setMyCreatedEvents((prev) => prev.filter((e) => e.id !== eventId));
+
+      const updatedLocal = getLocalCreatedEvents().filter((e) => e.id !== eventId);
+      saveLocalCreatedEvents(updatedLocal);
+
+      refreshUserCreatedEvents();
+      loadEventsData();
     }
   };
 
