@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, MapPin, Clock, DollarSign, Tag, Image, Link as LinkIcon, Building } from 'lucide-react';
+import { X } from 'lucide-react';
 import { EventItem } from '../types';
 
 interface CreateEventModalProps {
