@@ -1,5 +1,6 @@
 export interface EventItem {
   id: string;
+  eventId?: string;
   title: string;
   description: string;
   summary?: string;
@@ -17,6 +18,7 @@ export interface EventItem {
   endDate?: string;
   timeString: string; // e.g. "9:00 AM - 5:00 PM"
   organizer: string;
+  createdByEmail?: string;
   price: number; // 0 for Free
   currency: string;
   seatsLeft?: number;

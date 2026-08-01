@@ -44,11 +44,12 @@ const EventSchema = new mongoose.Schema(
     startDate: { type: String, required: true },
     timeString: { type: String, required: true },
     organizer: { type: String },
+    createdByEmail: { type: String },
     price: { type: Number, default: 0 },
     currency: { type: String, default: 'INR' },
     registrationUrl: { type: String },
     imageUrl: { type: String },
-    status: { type: String, default: 'approved' },
+    status: { type: String, default: 'pending' },
     source: { type: String, default: 'user' },
     tags: [{ type: String }],
   },
@@ -549,6 +550,102 @@ async function startServer() {
     }
   });
 
+  // Store for OTP reset tokens: email -> { code, expiresAt }
+  const otpStore = new Map<string, { code: string; expiresAt: number }>();
+
+  // Request Forgot Password OTP Endpoint
+  app.post('/api/auth/forgot-password', async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email address is required' });
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      let userFound = false;
+
+      if (isMongoConnected) {
+        const user = await UserModel.findOne({ email: cleanEmail } as any);
+        if (user) userFound = true;
+      } else {
+        const user = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
+        if (user) userFound = true;
+      }
+
+      if (!userFound) {
+        return res.status(404).json({ error: 'No account found with this email address. Please check your email or register.' });
+      }
+
+      // Generate a 6-digit OTP code
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      otpStore.set(cleanEmail, {
+        code: generatedOtp,
+        expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+      });
+
+      console.log(`[OTP Generated] Email: ${cleanEmail}, Code: ${generatedOtp}`);
+
+      res.json({
+        message: 'A 6-digit OTP code has been generated.',
+        simulatedOtp: generatedOtp,
+        email: cleanEmail,
+      });
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      res.status(500).json({ error: 'Failed to process password reset request' });
+    }
+  });
+
+  // Reset Password with OTP Endpoint
+  app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+      const { email, otp, newPassword } = req.body;
+      if (!email || !otp || !newPassword) {
+        return res.status(400).json({ error: 'Email, OTP code, and new password are required' });
+      }
+
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const storedOtp = otpStore.get(cleanEmail);
+
+      if (!storedOtp) {
+        return res.status(400).json({ error: 'No password reset request found for this email. Please request a new OTP.' });
+      }
+
+      if (Date.now() > storedOtp.expiresAt) {
+        otpStore.delete(cleanEmail);
+        return res.status(400).json({ error: 'OTP code has expired. Please request a new OTP.' });
+      }
+
+      if (storedOtp.code !== otp.trim()) {
+        return res.status(400).json({ error: 'Invalid OTP code. Please check the 6-digit verification code.' });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      if (isMongoConnected) {
+        await UserModel.updateOne({ email: cleanEmail } as any, { password: hashedPassword });
+      } else {
+        const user = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
+        if (user) {
+          user.password = hashedPassword;
+        }
+      }
+
+      // Clear the OTP
+      otpStore.delete(cleanEmail);
+
+      res.json({ message: 'Password reset successfully! You can now log in with your new password.' });
+    } catch (err) {
+      console.error('Reset password error:', err);
+      res.status(500).json({ error: 'Failed to reset password' });
+    }
+  });
+
+
   // ==========================================
   // EVENT API ROUTES
   // ==========================================
@@ -603,10 +700,12 @@ async function startServer() {
       }
 
       if (allEvts.length === 0) {
-        allEvts = eventsDatabase.map((e) => ({
-          ...e,
-          registrationUrl: fixRegistrationUrl(e.registrationUrl, e.title, e.category, e.city),
-        }));
+        allEvts = eventsDatabase
+          .filter((e) => e.status === 'approved' || !e.status)
+          .map((e) => ({
+            ...e,
+            registrationUrl: fixRegistrationUrl(e.registrationUrl, e.title, e.category, e.city),
+          }));
       }
 
       // 2. Fetch from Ticketmaster API if API Key is configured
@@ -848,6 +947,7 @@ async function startServer() {
         startDate: startDate || new Date().toISOString().split('T')[0],
         timeString: timeString || '10:00 AM - 4:00 PM',
         organizer: (organizer || req.user?.name || 'Community Organizer').trim().slice(0, 100),
+        createdByEmail: req.user?.email || '',
         price: price ? Math.max(0, parseFloat(price)) : 0,
         currency: 'INR',
         registrationUrl: cleanRegUrl,
@@ -868,6 +968,249 @@ async function startServer() {
       });
     } catch (err) {
       res.status(400).json({ error: 'Invalid event payload' });
+    }
+  });
+
+  // GET /api/events/my-created - Get events created by logged-in user
+  app.get('/api/events/my-created', authenticateToken, async (req: any, res) => {
+    try {
+      const userEmail = (req.user?.email || '').toLowerCase();
+      const userName = req.user?.name;
+
+      let userEvts: any[] = [];
+      if (isMongoConnected) {
+        const dbEvts = await EventModel.find({
+          $or: [
+            { createdByEmail: userEmail },
+            { organizer: userName }
+          ]
+        } as any).lean();
+        userEvts = dbEvts.map((e: any) => ({
+          id: e.eventId,
+          title: e.title,
+          description: e.description,
+          category: e.category,
+          subtype: e.subtype,
+          venue: e.venue,
+          address: e.address,
+          city: e.city,
+          state: e.state,
+          country: e.country,
+          latitude: e.latitude,
+          longitude: e.longitude,
+          startDate: e.startDate,
+          timeString: e.timeString,
+          organizer: e.organizer,
+          createdByEmail: e.createdByEmail,
+          price: e.price,
+          currency: e.currency,
+          registrationUrl: fixRegistrationUrl(e.registrationUrl, e.title, e.category, e.city),
+          imageUrl: e.imageUrl,
+          status: e.status || 'approved',
+          source: e.source,
+          tags: e.tags,
+        }));
+      } else {
+        userEvts = eventsDatabase.filter(
+          (e) => (e.createdByEmail && e.createdByEmail.toLowerCase() === userEmail) || e.organizer === userName || e.source === 'user'
+        );
+      }
+
+      res.json({ events: userEvts });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch created events' });
+    }
+  });
+
+  // PUT /api/events/:id - Update existing event (Owner or Admin)
+  app.put('/api/events/:id', authenticateToken, async (req: any, res) => {
+    try {
+      const eventId = req.params.id;
+      const userEmail = (req.user?.email || '').toLowerCase();
+      const isAdmin = req.user?.role === 'admin';
+
+      let existingEvt: any = null;
+      if (isMongoConnected) {
+        existingEvt = await EventModel.findOne({ eventId } as any);
+      } else {
+        existingEvt = eventsDatabase.find((e) => e.id === eventId || e.eventId === eventId);
+      }
+
+      if (!existingEvt) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      const isOwner = existingEvt.createdByEmail && existingEvt.createdByEmail.toLowerCase() === userEmail;
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({ error: 'You do not have permission to edit this event' });
+      }
+
+      const { title, description, category, subtype, venue, address, city, state, country, latitude, longitude, startDate, timeString, organizer, price, registrationUrl, imageUrl, tags } = req.body;
+
+      const updatedData: any = {
+        title: title ? title.trim().slice(0, 150) : existingEvt.title,
+        description: description !== undefined ? description.trim().slice(0, 2000) : existingEvt.description,
+        category: category || existingEvt.category,
+        subtype: subtype || existingEvt.subtype,
+        venue: venue ? venue.trim().slice(0, 150) : existingEvt.venue,
+        address: address !== undefined ? address.trim().slice(0, 200) : existingEvt.address,
+        city: city ? city.trim().slice(0, 100) : existingEvt.city,
+        state: state || existingEvt.state,
+        country: country || existingEvt.country,
+        latitude: latitude ? parseFloat(latitude) : existingEvt.latitude,
+        longitude: longitude ? parseFloat(longitude) : existingEvt.longitude,
+        startDate: startDate || existingEvt.startDate,
+        timeString: timeString || existingEvt.timeString,
+        organizer: organizer ? organizer.trim().slice(0, 100) : existingEvt.organizer,
+        price: price !== undefined ? Math.max(0, parseFloat(price)) : existingEvt.price,
+        registrationUrl: registrationUrl ? registrationUrl.trim() : existingEvt.registrationUrl,
+        imageUrl: imageUrl ? imageUrl.trim() : existingEvt.imageUrl,
+        tags: tags || existingEvt.tags,
+      };
+
+      if (isMongoConnected) {
+        await EventModel.updateOne({ eventId } as any, updatedData);
+      }
+
+      const memIdx = eventsDatabase.findIndex((e) => e.id === eventId || e.eventId === eventId);
+      if (memIdx !== -1) {
+        eventsDatabase[memIdx] = { ...eventsDatabase[memIdx], ...updatedData };
+      }
+
+      res.json({ message: 'Event updated successfully', event: { ...existingEvt, ...updatedData } });
+    } catch (err) {
+      console.error('Update event error:', err);
+      res.status(500).json({ error: 'Failed to update event' });
+    }
+  });
+
+  // DELETE /api/events/:id - Delete event (Owner or Admin)
+  app.delete('/api/events/:id', authenticateToken, async (req: any, res) => {
+    try {
+      const eventId = req.params.id;
+      const userEmail = (req.user?.email || '').toLowerCase();
+      const isAdmin = req.user?.role === 'admin';
+
+      let existingEvt: any = null;
+      if (isMongoConnected) {
+        existingEvt = await EventModel.findOne({ eventId } as any);
+      } else {
+        existingEvt = eventsDatabase.find((e) => e.id === eventId || e.eventId === eventId);
+      }
+
+      if (!existingEvt) {
+        return res.status(404).json({ error: 'Event not found' });
+      }
+
+      const isOwner = existingEvt.createdByEmail && existingEvt.createdByEmail.toLowerCase() === userEmail;
+      if (!isAdmin && !isOwner) {
+        return res.status(403).json({ error: 'You do not have permission to delete this event' });
+      }
+
+      if (isMongoConnected) {
+        await EventModel.deleteOne({ eventId } as any);
+      }
+
+      const memIdx = eventsDatabase.findIndex((e) => e.id === eventId || e.eventId === eventId);
+      if (memIdx !== -1) {
+        eventsDatabase.splice(memIdx, 1);
+      }
+
+      res.json({ message: 'Event deleted successfully' });
+    } catch (err) {
+      console.error('Delete event error:', err);
+      res.status(500).json({ error: 'Failed to delete event' });
+    }
+  });
+
+  // GET /api/admin/pending-events - List pending events for review (Admin Only)
+  app.get('/api/admin/pending-events', authenticateToken, async (req: any, res) => {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    try {
+      let pendingEvts: any[] = [];
+      if (isMongoConnected) {
+        const dbEvts = await EventModel.find({ status: 'pending' } as any).lean();
+        pendingEvts = dbEvts.map((e: any) => ({
+          id: e.eventId,
+          title: e.title,
+          description: e.description,
+          category: e.category,
+          subtype: e.subtype,
+          venue: e.venue,
+          address: e.address,
+          city: e.city,
+          state: e.state,
+          country: e.country,
+          latitude: e.latitude,
+          longitude: e.longitude,
+          startDate: e.startDate,
+          timeString: e.timeString,
+          organizer: e.organizer,
+          createdByEmail: e.createdByEmail,
+          price: e.price,
+          currency: e.currency,
+          registrationUrl: fixRegistrationUrl(e.registrationUrl, e.title, e.category, e.city),
+          imageUrl: e.imageUrl,
+          status: e.status,
+          source: e.source,
+          tags: e.tags,
+        }));
+      } else {
+        pendingEvts = eventsDatabase.filter((e) => e.status === 'pending');
+      }
+
+      res.json({ events: pendingEvts });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch pending events' });
+    }
+  });
+
+  // POST /api/admin/events/:id/approve - Approve event (Admin Only)
+  app.post('/api/admin/events/:id/approve', authenticateToken, async (req: any, res) => {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    try {
+      const eventId = req.params.id;
+      if (isMongoConnected) {
+        await EventModel.updateOne({ eventId } as any, { status: 'approved' });
+      }
+
+      const memEvt = eventsDatabase.find((e) => e.id === eventId || e.eventId === eventId);
+      if (memEvt) {
+        memEvt.status = 'approved';
+      }
+
+      res.json({ message: 'Event approved successfully' });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to approve event' });
+    }
+  });
+
+  // POST /api/admin/events/:id/reject - Reject event (Admin Only)
+  app.post('/api/admin/events/:id/reject', authenticateToken, async (req: any, res) => {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    try {
+      const eventId = req.params.id;
+      if (isMongoConnected) {
+        await EventModel.updateOne({ eventId } as any, { status: 'rejected' });
+      }
+
+      const memEvt = eventsDatabase.find((e) => e.id === eventId || e.eventId === eventId);
+      if (memEvt) {
+        memEvt.status = 'rejected';
+      }
+
+      res.json({ message: 'Event rejected' });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to reject event' });
     }
   });
 

@@ -5,26 +5,27 @@ import { EventItem } from '../types';
 interface CreateEventModalProps {
   onClose: () => void;
   onSubmit: (eventData: Partial<EventItem>) => void;
+  eventToEdit?: EventItem | null;
 }
 
-export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onSubmit }) => {
+export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onSubmit, eventToEdit }) => {
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    category: 'Tech',
-    subtype: 'Conference',
-    venue: '',
-    address: '',
-    city: 'Pune',
-    state: 'Maharashtra',
-    country: 'India',
-    startDate: new Date().toISOString().split('T')[0],
-    timeString: '10:00 AM - 4:00 PM',
-    organizer: '',
-    price: 0,
-    registrationUrl: '',
-    imageUrl: '',
-    tags: 'Tech, Meetup',
+    title: eventToEdit?.title || '',
+    description: eventToEdit?.description || '',
+    category: eventToEdit?.category || 'Tech',
+    subtype: eventToEdit?.subtype || 'Conference',
+    venue: eventToEdit?.venue || '',
+    address: eventToEdit?.address || '',
+    city: eventToEdit?.city || 'Pune',
+    state: eventToEdit?.state || 'Maharashtra',
+    country: eventToEdit?.country || 'India',
+    startDate: eventToEdit?.startDate || new Date().toISOString().split('T')[0],
+    timeString: eventToEdit?.timeString || '10:00 AM - 4:00 PM',
+    organizer: eventToEdit?.organizer || '',
+    price: eventToEdit?.price || 0,
+    registrationUrl: eventToEdit?.registrationUrl || '',
+    imageUrl: eventToEdit?.imageUrl || '',
+    tags: eventToEdit?.tags ? eventToEdit.tags.join(', ') : 'Tech, Meetup',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -64,9 +65,11 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
           <X className="w-5 h-5" />
         </button>
 
-        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-1">Create New Event</h2>
+        <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-1">
+          {eventToEdit ? 'Edit Event Details' : 'Create New Event'}
+        </h2>
         <p className="text-xs text-slate-500 font-medium mb-6">
-          Submit your community event or meetup to be listed on NearEvent.
+          {eventToEdit ? 'Update the information for this event.' : 'Submit your community event or meetup to be listed on NearEvent.'}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -210,7 +213,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
               type="submit"
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all shadow-md"
             >
-              Submit & Publish Event
+              {eventToEdit ? 'Save Changes' : 'Submit & Publish Event'}
             </button>
           </div>
 

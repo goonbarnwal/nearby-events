@@ -227,3 +227,156 @@ export async function getCurrentUser(token: string): Promise<User | null> {
   }
   return null;
 }
+
+/**
+ * Request Password Reset OTP
+ */
+export async function requestPasswordReset(email: string): Promise<{ message: string; simulatedOtp?: string }> {
+  const res = await fetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to request password reset');
+  }
+  return await res.json();
+}
+
+/**
+ * Reset Password with OTP
+ */
+export async function resetPassword(data: { email: string; otp: string; newPassword: string }): Promise<{ message: string }> {
+  const res = await fetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to reset password');
+  }
+  return await res.json();
+}
+
+/**
+ * Fetch events created by the logged in user.
+ */
+export async function fetchMyCreatedEvents(): Promise<EventItem[]> {
+  try {
+    const token = localStorage.getItem('nearevent_jwt');
+    if (!token) return [];
+    const res = await fetch('/api/events/my-created', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.events || [];
+    }
+  } catch (err) {
+    console.warn('Fetch my created events error:', err);
+  }
+  return [];
+}
+
+/**
+ * Update existing event
+ */
+export async function updateEvent(eventId: string, eventData: Partial<EventItem>): Promise<EventItem | null> {
+  try {
+    const token = localStorage.getItem('nearevent_jwt');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`/api/events/${eventId}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(eventData),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.event;
+    }
+  } catch (err) {
+    console.warn('Update event error:', err);
+  }
+  return null;
+}
+
+/**
+ * Delete event
+ */
+export async function deleteEvent(eventId: string): Promise<boolean> {
+  try {
+    const token = localStorage.getItem('nearevent_jwt');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch(`/api/events/${eventId}`, {
+      method: 'DELETE',
+      headers,
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('Delete event error:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetch pending events for Admin moderation
+ */
+export async function fetchPendingEvents(): Promise<EventItem[]> {
+  try {
+    const token = localStorage.getItem('nearevent_jwt');
+    if (!token) return [];
+    const res = await fetch('/api/admin/pending-events', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data.events || [];
+    }
+  } catch (err) {
+    console.warn('Fetch pending events error:', err);
+  }
+  return [];
+}
+
+/**
+ * Admin: Approve Event
+ */
+export async function approveEvent(eventId: string): Promise<boolean> {
+  try {
+    const token = localStorage.getItem('nearevent_jwt');
+    if (!token) return false;
+    const res = await fetch(`/api/admin/events/${eventId}/approve`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('Approve event error:', err);
+    return false;
+  }
+}
+
+/**
+ * Admin: Reject Event
+ */
+export async function rejectEvent(eventId: string): Promise<boolean> {
+  try {
+    const token = localStorage.getItem('nearevent_jwt');
+    if (!token) return false;
+    const res = await fetch(`/api/admin/events/${eventId}/reject`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('Reject event error:', err);
+    return false;
+  }
+}
+

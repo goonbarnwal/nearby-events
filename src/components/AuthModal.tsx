@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Mail, Lock, User, Loader2 } from 'lucide-react';
+import { X, Mail, Lock, User, Loader2, KeyRound, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { User as UserType } from '../types';
-import { loginUser, registerUser, googleAuthUser } from '../services/api';
+import { loginUser, registerUser, googleAuthUser, requestPasswordReset, resetPassword } from '../services/api';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -14,6 +14,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
   const [customGoogleName, setCustomGoogleName] = useState('');
   const [customGoogleEmail, setCustomGoogleEmail] = useState('');
   const [isCustomGoogleAccount, setIsCustomGoogleAccount] = useState(false);
+
+  // Forgot Password / OTP state
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetStep, setResetStep] = useState<'request' | 'verify'>('request');
+  const [resetEmail, setResetEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [simulatedOtp, setSimulatedOtp] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,6 +51,54 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
       }
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+    setLoading(true);
+
+    try {
+      const res = await requestPasswordReset(resetEmail);
+      if (res.simulatedOtp) {
+        setSimulatedOtp(res.simulatedOtp);
+      }
+      setSuccessMsg('OTP code sent to your email!');
+      setResetStep('verify');
+    } catch (err: any) {
+      setError(err.message || 'Failed to request OTP code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMsg(null);
+    setLoading(true);
+
+    try {
+      const res = await resetPassword({
+        email: resetEmail,
+        otp: otpCode,
+        newPassword,
+      });
+      setSuccessMsg(res.message || 'Password reset successfully!');
+      setTimeout(() => {
+        setIsForgotPassword(false);
+        setIsSignUp(false);
+        setEmail(resetEmail);
+        setPassword('');
+        setSuccessMsg(null);
+        setError(null);
+      }, 1500);
+    } catch (err: any) {
+      setError(err.message || 'Failed to reset password. Check your OTP code.');
     } finally {
       setLoading(false);
     }
@@ -77,7 +134,125 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
           <X className="w-5 h-5" />
         </button>
 
-        {showGooglePicker ? (
+        {isForgotPassword ? (
+          /* ==================================================== */
+          /* FORGOT PASSWORD / OTP RESET SCREEN */
+          /* ==================================================== */
+          <div>
+            <div className="mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setError(null);
+                  setSuccessMsg(null);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 mb-3 transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Login</span>
+              </button>
+              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                <KeyRound className="w-6 h-6 text-blue-600" />
+                Reset Password
+              </h2>
+              <p className="text-xs font-medium text-slate-500 mt-1">
+                {resetStep === 'request'
+                  ? 'Enter your registered email address to receive a 6-digit OTP code.'
+                  : 'Enter the 6-digit OTP code sent to your email and your new password.'}
+              </p>
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs font-semibold">
+                {error}
+              </div>
+            )}
+
+            {successMsg && (
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
+            {resetStep === 'request' ? (
+              <form onSubmit={handleRequestOtp} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Registered Email</label>
+                  <div className="relative flex items-center">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
+                    <input
+                      type="email"
+                      required
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      placeholder="e.g. goonbarnwal@gmail.com"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>Get 6-Digit OTP</span>
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyResetPassword} className="space-y-3.5">
+                {simulatedOtp && (
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-center">
+                    <p className="text-[11px] font-semibold text-blue-700">Verification Code (OTP)</p>
+                    <p className="text-xl font-black text-blue-900 tracking-widest mt-0.5">{simulatedOtp}</p>
+                    <p className="text-[10px] text-blue-600 mt-1">Use this 6-digit code to complete password reset</p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">6-Digit OTP Code</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-center text-lg font-bold tracking-widest focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">New Password</label>
+                  <div className="relative flex items-center">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>Reset & Save Password</span>
+                </button>
+              </form>
+            )}
+          </div>
+        ) : showGooglePicker ? (
           /* ==================================================== */
           /* GOOGLE ACCOUNT SELECTOR SCREEN */
           /* ==================================================== */
@@ -99,101 +274,63 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
               </div>
             )}
 
-            {!isCustomGoogleAccount ? (
-              <div className="space-y-3">
-                {/* Account 1: Goon Barnwal */}
-                <button
-                  onClick={() => handleExecuteGoogleLogin('Goon Barnwal', 'barnwalgoon@gmail.com')}
-                  disabled={loading}
-                  className="w-full p-3.5 bg-slate-50 hover:bg-blue-50/60 border border-slate-200 hover:border-blue-300 rounded-2xl flex items-center gap-3.5 transition-all text-left group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-extrabold text-base flex items-center justify-center shrink-0 shadow-xs">
-                    G
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
-                      Goon Barnwal
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">barnwalgoon@gmail.com</p>
-                  </div>
-                  {loading && <Loader2 className="w-4 h-4 animate-spin text-blue-600" />}
-                </button>
-
-                {/* Option 2: Use another Google account */}
-                <button
-                  onClick={() => setIsCustomGoogleAccount(true)}
-                  disabled={loading}
-                  className="w-full p-3.5 bg-white hover:bg-slate-50 border border-dashed border-slate-300 rounded-2xl flex items-center gap-3.5 transition-all text-left"
-                >
-                  <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-600 font-bold text-base flex items-center justify-center shrink-0">
-                    +
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800">Use another Google Account</p>
-                    <p className="text-xs text-slate-500">Sign in with custom name and email</p>
-                  </div>
-                </button>
-
-                <button
-                  onClick={() => setShowGooglePicker(false)}
-                  className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors"
-                >
-                  ← Back to standard login
-                </button>
-              </div>
-            ) : (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (customGoogleName && customGoogleEmail) {
-                    handleExecuteGoogleLogin(customGoogleName.trim(), customGoogleEmail.trim());
-                  }
-                }}
-                className="space-y-3.5"
-              >
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Google Profile Name</label>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (customGoogleName && customGoogleEmail) {
+                  handleExecuteGoogleLogin(customGoogleName.trim(), customGoogleEmail.trim());
+                }
+              }}
+              className="space-y-3.5"
+            >
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Google Profile Name</label>
+                <div className="relative flex items-center">
+                  <User className="w-4 h-4 text-slate-400 absolute left-3" />
                   <input
                     type="text"
                     required
                     value={customGoogleName}
                     onChange={(e) => setCustomGoogleName(e.target.value)}
-                    placeholder="e.g. Rahul Sharma"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-medium focus:bg-white focus:outline-none"
+                    placeholder="Enter your name (e.g. Shreya Kadam)"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Google Account Email</label>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Google Email Address</label>
+                <div className="relative flex items-center">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3" />
                   <input
                     type="email"
                     required
                     value={customGoogleEmail}
                     onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                    placeholder="e.g. rahul.sharma@gmail.com"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-medium focus:bg-white focus:outline-none"
+                    placeholder="Enter your email (e.g. shreya@gmail.com)"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2.5 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
+              </div>
 
-                <div className="flex items-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsCustomGoogleAccount(false)}
-                    className="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-1/2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
-                  >
-                    {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Continue</span>
-                  </button>
-                </div>
-              </form>
-            )}
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGooglePicker(false)}
+                  className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
+                >
+                  Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-2/3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Sign In with Google</span>
+                </button>
+              </div>
+            </form>
           </div>
         ) : (
           /* ==================================================== */
@@ -283,7 +420,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase">Password</label>
+                  {!isSignUp && (
+                    <button
+                      type="button"
+                      id="btn-forgot-password"
+                      onClick={() => {
+                        setResetEmail(email || '');
+                        setResetStep('request');
+                        setOtpCode('');
+                        setNewPassword('');
+                        setSimulatedOtp(null);
+                        setError(null);
+                        setSuccessMsg(null);
+                        setIsForgotPassword(true);
+                      }}
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      Forgot Password?
+                    </button>
+                  )}
+                </div>
                 <div className="relative flex items-center">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
                   <input

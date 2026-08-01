@@ -14,7 +14,7 @@ import { AiRecommendationsModal } from './components/AiRecommendationsModal';
 import { Footer } from './components/Footer';
 import { EventItem, FilterState, UserLocation, User } from './types';
 import { INITIAL_EVENTS } from './data/mockEvents';
-import { fetchEvents, reverseGeocode, searchLocation, createEvent, getCurrentUser } from './services/api';
+import { fetchEvents, reverseGeocode, searchLocation, createEvent, getCurrentUser, fetchMyCreatedEvents, updateEvent, deleteEvent } from './services/api';
 import { ChevronDown, SlidersHorizontal, MapPin } from 'lucide-react';
 
 export default function App() {
@@ -45,6 +45,8 @@ export default function App() {
 
   // Events Database
   const [allEvents, setAllEvents] = useState<EventItem[]>(INITIAL_EVENTS);
+  const [myCreatedEvents, setMyCreatedEvents] = useState<EventItem[]>([]);
+  const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const [visibleCount, setVisibleCount] = useState(5);
 
   // User state, Bookmarks, Registrations
@@ -71,29 +73,47 @@ export default function App() {
     }
   }, []);
 
+  // Refresh user created events
+  const refreshUserCreatedEvents = async () => {
+    if (user) {
+      const created = await fetchMyCreatedEvents();
+      setMyCreatedEvents(created);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      refreshUserCreatedEvents();
+    } else {
+      setMyCreatedEvents([]);
+    }
+  }, [user, activeTab]);
+
   // 1. Browser Geolocation API detection on initial mount
   useEffect(() => {
     handleRequestLocation();
   }, []);
 
+  // 2. Fetch fresh events function
+  const loadEventsData = async () => {
+    const data = await fetchEvents({
+      lat: location.latitude,
+      lon: location.longitude,
+      city: location.city,
+      category: filters.category,
+      search: filters.searchQuery,
+      radiusKm: filters.radiusKm,
+      dateFilter: filters.dateFilter,
+    });
+
+    if (data) {
+      setAllEvents(data);
+    }
+  };
+
   // 2. Fetch fresh events whenever location or filter category changes
   useEffect(() => {
-    async function loadData() {
-      const data = await fetchEvents({
-        lat: location.latitude,
-        lon: location.longitude,
-        city: location.city,
-        category: filters.category,
-        search: filters.searchQuery,
-        radiusKm: filters.radiusKm,
-        dateFilter: filters.dateFilter,
-      });
-
-      if (data) {
-        setAllEvents(data);
-      }
-    }
-    loadData();
+    loadEventsData();
   }, [location.city, filters.category]);
 
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -170,13 +190,49 @@ export default function App() {
     }
   };
 
-  // Create Event Handler
+  // Create or Update Event Handler
   const handleCreateEventSubmit = async (eventData: Partial<EventItem>) => {
-    const created = await createEvent(eventData);
-    if (created) {
-      setAllEvents((prev) => [created, ...prev]);
-      setCreateModalOpen(false);
-      setActiveTab('home');
+    if (editingEvent) {
+      const updated = await updateEvent(editingEvent.id, eventData);
+      if (updated) {
+        setAllEvents((prev) => prev.map((e) => (e.id === editingEvent.id ? updated : e)));
+        setMyCreatedEvents((prev) => prev.map((e) => (e.id === editingEvent.id ? updated : e)));
+        setEditingEvent(null);
+        setCreateModalOpen(false);
+        refreshUserCreatedEvents();
+        loadEventsData();
+      }
+    } else {
+      const created = await createEvent(eventData);
+      if (created) {
+        if (created.status === 'approved') {
+          setAllEvents((prev) => [created, ...prev]);
+        }
+        setMyCreatedEvents((prev) => [created, ...prev]);
+        setCreateModalOpen(false);
+        setActiveTab('my-events');
+        refreshUserCreatedEvents();
+        loadEventsData();
+      }
+    }
+  };
+
+  // Edit Event Click Handler
+  const handleEditEventClick = (event: EventItem) => {
+    setEditingEvent(event);
+    setCreateModalOpen(true);
+  };
+
+  // Delete Event Handler
+  const handleDeleteEvent = async (eventId: string) => {
+    if (window.confirm('Are you sure you want to delete this event?')) {
+      const success = await deleteEvent(eventId);
+      if (success) {
+        setAllEvents((prev) => prev.filter((e) => e.id !== eventId));
+        setMyCreatedEvents((prev) => prev.filter((e) => e.id !== eventId));
+        refreshUserCreatedEvents();
+        loadEventsData();
+      }
     }
   };
 
@@ -366,12 +422,18 @@ export default function App() {
         {activeTab === 'my-events' && (
           <MyEventsView
             allEvents={allEvents}
+            myCreatedEvents={myCreatedEvents}
             bookmarkedIds={bookmarkedIds}
             registeredIds={registeredIds}
             user={user}
             onViewDetails={(evt) => setSelectedEvent(evt)}
             onToggleBookmark={handleToggleBookmark}
-            onCreateNewClick={() => setCreateModalOpen(true)}
+            onCreateNewClick={() => {
+              setEditingEvent(null);
+              setCreateModalOpen(true);
+            }}
+            onEditEvent={handleEditEventClick}
+            onDeleteEvent={handleDeleteEvent}
           />
         )}
 
@@ -407,8 +469,12 @@ export default function App() {
 
       {createModalOpen && (
         <CreateEventModal
-          onClose={() => setCreateModalOpen(false)}
+          onClose={() => {
+            setCreateModalOpen(false);
+            setEditingEvent(null);
+          }}
           onSubmit={handleCreateEventSubmit}
+          eventToEdit={editingEvent}
         />
       )}
 
@@ -416,13 +482,17 @@ export default function App() {
         <AdminPanelModal
           events={allEvents}
           onClose={() => setAdminModalOpen(false)}
-          onApproveEvent={(id) => {
-            setAllEvents((prev) =>
-              prev.map((e) => (e.id === id ? { ...e, status: 'approved' } : e))
-            );
+          onApproveEvent={() => {
+            loadEventsData();
+            refreshUserCreatedEvents();
           }}
-          onRejectEvent={(id) => {
-            setAllEvents((prev) => prev.filter((e) => e.id !== id));
+          onRejectEvent={() => {
+            loadEventsData();
+            refreshUserCreatedEvents();
+          }}
+          onRefreshEvents={() => {
+            loadEventsData();
+            refreshUserCreatedEvents();
           }}
         />
       )}

@@ -5,28 +5,34 @@ import { EventCard } from './EventCard';
 
 interface MyEventsViewProps {
   allEvents: EventItem[];
+  myCreatedEvents: EventItem[];
   bookmarkedIds: string[];
   registeredIds: string[];
   user: UserType | null;
   onViewDetails: (event: EventItem) => void;
   onToggleBookmark: (eventId: string, e: React.MouseEvent) => void;
   onCreateNewClick: () => void;
+  onEditEvent?: (event: EventItem) => void;
+  onDeleteEvent?: (eventId: string) => void;
 }
 
 export const MyEventsView: React.FC<MyEventsViewProps> = ({
   allEvents,
+  myCreatedEvents,
   bookmarkedIds,
   registeredIds,
   user,
   onViewDetails,
   onToggleBookmark,
   onCreateNewClick,
+  onEditEvent,
+  onDeleteEvent,
 }) => {
   const [activeTab, setActiveTab] = useState<'bookmarks' | 'registered' | 'created'>('bookmarks');
 
   const bookmarkedEvents = allEvents.filter((e) => bookmarkedIds.includes(e.id));
   const registeredEvents = allEvents.filter((e) => registeredIds.includes(e.id));
-  const userCreatedEvents = allEvents.filter((e) => e.source === 'user');
+  const createdEventsList = myCreatedEvents.length > 0 ? myCreatedEvents : allEvents.filter((e) => e.source === 'user' || (user && e.createdByEmail === user.email));
 
   return (
     <div className="py-8 space-y-6">
@@ -90,7 +96,7 @@ export const MyEventsView: React.FC<MyEventsViewProps> = ({
           }`}
         >
           <Calendar className="w-4 h-4" />
-          <span>Created Events ({userCreatedEvents.length})</span>
+          <span>Created Events ({createdEventsList.length})</span>
         </button>
       </div>
 
@@ -139,14 +145,17 @@ export const MyEventsView: React.FC<MyEventsViewProps> = ({
         )}
 
         {activeTab === 'created' && (
-          userCreatedEvents.length > 0 ? (
-            userCreatedEvents.map((event) => (
+          createdEventsList.length > 0 ? (
+            createdEventsList.map((event) => (
               <EventCard
                 key={event.id}
                 event={event}
                 onViewDetails={onViewDetails}
                 isBookmarked={bookmarkedIds.includes(event.id)}
                 onToggleBookmark={onToggleBookmark}
+                onEdit={onEditEvent}
+                onDelete={onDeleteEvent}
+                showStatusBadge={true}
               />
             ))
           ) : (
