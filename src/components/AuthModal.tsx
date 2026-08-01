@@ -21,7 +21,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
   const [resetEmail, setResetEmail] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [simulatedOtp, setSimulatedOtp] = useState<string | null>(null);
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   
   const [email, setEmail] = useState('');
@@ -70,14 +70,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
     setLoading(true);
 
     try {
-      const res = await requestPasswordReset(resetEmail);
-      if (res.simulatedOtp) {
-        setSimulatedOtp(res.simulatedOtp);
-      }
-      setSuccessMsg('OTP code sent to your email!');
+      await requestPasswordReset(resetEmail.trim());
+      setSuccessMsg('A 6-digit OTP code has been sent to your email address!');
       setResetStep('verify');
+      setOtpCode('');
+      setNewPassword('');
+      setConfirmNewPassword('');
     } catch (err: any) {
-      setError(err.message || 'Failed to request OTP code.');
+      setError(err.message || 'Failed to request OTP code. Please verify email.');
     } finally {
       setLoading(false);
     }
@@ -87,12 +87,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+
+    if (newPassword !== confirmNewPassword) {
+      setError('New passwords do not match. Please verify your new password.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await resetPassword({
-        email: resetEmail,
-        otp: otpCode,
+        email: resetEmail.trim(),
+        otp: otpCode.trim(),
         newPassword,
       });
       setSuccessMsg(res.message || 'Password reset successfully!');
@@ -101,11 +107,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
         setIsSignUp(false);
         setEmail(resetEmail);
         setPassword('');
+        setConfirmPassword('');
         setSuccessMsg(null);
         setError(null);
       }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password. Check your OTP code.');
+      setError(err.message || 'Failed to reset password. Please check your OTP code.');
     } finally {
       setLoading(false);
     }
@@ -194,7 +201,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                       required
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="e.g. goonbarnwal@gmail.com"
+                      placeholder="Enter registered email"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -211,14 +218,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
               </form>
             ) : (
               <form onSubmit={handleVerifyResetPassword} className="space-y-3.5">
-                {simulatedOtp && (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl text-center">
-                    <p className="text-[11px] font-semibold text-blue-700">Verification Code (OTP)</p>
-                    <p className="text-xl font-black text-blue-900 tracking-widest mt-0.5">{simulatedOtp}</p>
-                    <p className="text-[10px] text-blue-600 mt-1">Use this 6-digit code to complete password reset</p>
-                  </div>
-                )}
-
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">6-Digit OTP Code</label>
                   <input
@@ -227,7 +226,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                     maxLength={6}
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value)}
-                    placeholder="Enter 6-digit OTP"
+                    placeholder="Enter 6-digit OTP code"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-center text-lg font-bold tracking-widest focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -242,7 +241,23 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                       minLength={6}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="Enter new password"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Confirm New Password</label>
+                  <div className="relative flex items-center">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3" />
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={confirmNewPassword}
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      placeholder="Confirm new password"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -421,7 +436,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                       required
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Goon Barnwal"
+                      placeholder="Enter full name"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -437,7 +452,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@domain.com"
+                    placeholder="Enter email address"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -455,7 +470,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                         setResetStep('request');
                         setOtpCode('');
                         setNewPassword('');
-                        setSimulatedOtp(null);
+                        setConfirmNewPassword('');
                         setError(null);
                         setSuccessMsg(null);
                         setIsForgotPassword(true);
@@ -473,7 +488,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="Enter password"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
@@ -489,7 +504,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="Confirm password"
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -515,7 +530,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
 
             {/* Google OAuth Button */}
             <button
-              onClick={() => setShowGooglePicker(true)}
+              type="button"
+              onClick={() => {
+                const gEmail = email.trim() || 'google.user@nearevent.app';
+                const gName = name.trim() || gEmail.split('@')[0];
+                handleExecuteGoogleLogin(gName, gEmail);
+              }}
               disabled={loading}
               className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2.5 disabled:opacity-50"
             >

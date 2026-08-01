@@ -81,7 +81,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="e.g. Pune React Developers Meetup"
+              placeholder="Enter event title"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none"
             />
           </div>
@@ -111,7 +111,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
                 type="text"
                 value={formData.subtype}
                 onChange={(e) => setFormData({ ...formData, subtype: e.target.value })}
-                placeholder="e.g. Meetup / Workshop"
+                placeholder="Event subtype (e.g. Meetup)"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:bg-white focus:outline-none"
               />
             </div>
@@ -124,7 +124,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
               required
               value={formData.venue}
               onChange={(e) => setFormData({ ...formData, venue: e.target.value })}
-              placeholder="e.g. WeWork, Kalyani Nagar"
+              placeholder="Enter venue & address"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium focus:bg-white focus:outline-none"
             />
           </div>
