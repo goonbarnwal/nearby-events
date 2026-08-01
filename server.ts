@@ -120,6 +120,15 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
 const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
 const EventModel = mongoose.models.Event || mongoose.model('Event', EventSchema);
 
+const ADMIN_EMAILS = ['barnwalgoon@gmail.com', 'admin@nearevent.app'];
+const isAdminEmail = (emailStr?: string): boolean => {
+  if (!emailStr) return false;
+  const clean = emailStr.trim().toLowerCase();
+  if (ADMIN_EMAILS.includes(clean)) return true;
+  if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.trim().toLowerCase() === clean) return true;
+  return false;
+};
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -301,7 +310,7 @@ async function startServer() {
           name,
           email,
           password: hashedPassword,
-          role: email.includes('admin') ? 'admin' : 'user',
+          role: isAdminEmail(email) ? 'admin' : 'user',
         });
         userObj = {
           id: newUser._id.toString(),
@@ -321,7 +330,7 @@ async function startServer() {
           name,
           email,
           password: hashedPassword,
-          role: email.includes('admin') ? 'admin' : 'user',
+          role: isAdminEmail(email) ? 'admin' : 'user',
           bookmarkedEventIds: [],
           registeredEventIds: [],
         };
@@ -417,15 +426,24 @@ async function startServer() {
       let userObj: any;
       if (isMongoConnected) {
         let user: any = await UserModel.findOne({ email } as any);
+        const assignedRole = isAdminEmail(email) ? 'admin' : 'user';
         if (!user) {
           user = await UserModel.create({
             name,
             email,
-            role: 'user',
+            role: assignedRole,
           });
-        } else if (name && (user.name === 'Google User' || user.name !== name)) {
-          user.name = name;
-          await user.save();
+        } else {
+          let updated = false;
+          if (name && (user.name === 'Google User' || user.name !== name)) {
+            user.name = name;
+            updated = true;
+          }
+          if (user.role !== assignedRole && isAdminEmail(email)) {
+            user.role = assignedRole;
+            updated = true;
+          }
+          if (updated) await user.save();
         }
         userObj = {
           id: user._id.toString(),
@@ -442,13 +460,18 @@ async function startServer() {
             id: `google-${Date.now()}`,
             name,
             email,
-            role: 'user',
+            role: isAdminEmail(email) ? 'admin' : 'user',
             bookmarkedEventIds: [],
             registeredEventIds: [],
           };
           usersMemoryDB.push(userObj);
-        } else if (name && name !== 'Google User') {
-          userObj.name = name;
+        } else {
+          if (name && name !== 'Google User') {
+            userObj.name = name;
+          }
+          if (isAdminEmail(email)) {
+            userObj.role = 'admin';
+          }
         }
       }
 
