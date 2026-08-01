@@ -31,6 +31,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Saved user helper
+  const getSavedUser = (): { name: string; email: string } | null => {
+    try {
+      const raw = localStorage.getItem('nearevent_saved_user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -50,10 +60,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
           password,
         });
         localStorage.setItem('nearevent_jwt', token);
+        localStorage.setItem('nearevent_saved_user', JSON.stringify({ name: user.name, email: user.email }));
         onLoginSuccess(user);
       } else {
         const { token, user } = await loginUser({ email, password });
         localStorage.setItem('nearevent_jwt', token);
+        localStorage.setItem('nearevent_saved_user', JSON.stringify({ name: user.name, email: user.email }));
         onLoginSuccess(user);
       }
     } catch (err: any) {
@@ -128,6 +140,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
         email: accountEmail,
       });
       localStorage.setItem('nearevent_jwt', token);
+      localStorage.setItem('nearevent_saved_user', JSON.stringify({ name: user.name, email: user.email }));
       onLoginSuccess(user);
     } catch (err: any) {
       setError(err.message || 'Google login failed');
@@ -296,33 +309,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
               </div>
             )}
 
-            {/* Quick Google Account Selection Card */}
-            <div className="mb-4 space-y-2">
-              <button
-                type="button"
-                onClick={() => handleExecuteGoogleLogin('Goon Barnwal', 'barnwalgoon@gmail.com')}
-                disabled={loading}
-                className="w-full p-3 bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 rounded-2xl flex items-center gap-3 transition-all text-left group"
-              >
-                <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
-                  GB
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate">Goon Barnwal</p>
-                  <p className="text-[11px] text-slate-500 truncate">barnwalgoon@gmail.com</p>
-                </div>
-                <span className="text-[10px] font-extrabold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                  Logged In
-                </span>
-              </button>
-            </div>
+            {/* Quick Google Account Selection Card if saved on this browser */}
+            {(() => {
+              const savedUser = getSavedUser();
+              if (!savedUser) return null;
+              return (
+                <>
+                  <div className="mb-3 space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteGoogleLogin(savedUser.name, savedUser.email)}
+                      disabled={loading}
+                      className="w-full p-3 bg-slate-50 hover:bg-blue-50/70 border border-slate-200 hover:border-blue-300 rounded-2xl flex items-center gap-3 transition-all text-left group"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        {savedUser.name ? savedUser.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 group-hover:text-blue-700 truncate">{savedUser.name}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{savedUser.email}</p>
+                      </div>
+                      <span className="text-[10px] font-extrabold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                        Saved Profile
+                      </span>
+                    </button>
+                  </div>
 
-            <div className="relative my-3 flex items-center justify-center">
-              <div className="border-t border-slate-200 w-full" />
-              <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider absolute">
-                Or Enter Google Account
-              </span>
-            </div>
+                  <div className="relative my-3 flex items-center justify-center">
+                    <div className="border-t border-slate-200 w-full" />
+                    <span className="bg-white px-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider absolute">
+                      Or Use Another Account
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
 
             <form
               onSubmit={(e) => {
@@ -560,9 +581,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
             <button
               type="button"
               onClick={() => {
+                const saved = getSavedUser();
                 if (email.trim()) {
                   setCustomGoogleEmail(email.trim());
                   setCustomGoogleName(name.trim() || email.trim().split('@')[0]);
+                } else if (saved?.email) {
+                  setCustomGoogleEmail(saved.email);
+                  setCustomGoogleName(saved.name || saved.email.split('@')[0]);
+                } else {
+                  setCustomGoogleEmail('');
+                  setCustomGoogleName('');
                 }
                 setShowGooglePicker(true);
               }}
