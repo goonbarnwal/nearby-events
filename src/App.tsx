@@ -96,10 +96,16 @@ export default function App() {
     loadData();
   }, [location.city, filters.category]);
 
+  const [locationError, setLocationError] = useState<string | null>(null);
+
   // Handle Geolocation Request
   const handleRequestLocation = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser. Defaulting to Pune.');
+      return;
+    }
     setIsLocating(true);
+    setLocationError(null);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const lat = pos.coords.latitude;
@@ -110,8 +116,9 @@ export default function App() {
         setIsLocating(false);
       },
       (err) => {
-        console.warn('Geolocation error:', err);
+        console.warn('Geolocation position error:', err);
         setIsLocating(false);
+        setLocationError('Could not access current location. Searching Pune by default.');
       },
       { timeout: 8000 }
     );
@@ -328,15 +335,29 @@ export default function App() {
         {/* View 4: Create Event View */}
         {activeTab === 'create' && (
           <div className="max-w-xl mx-auto py-8">
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 text-center">
               <h1 className="text-2xl font-extrabold text-slate-900">Publish Your Event</h1>
               <p className="text-xs text-slate-500 font-medium">Fill out the form below to publish your event on NearEvent.</p>
-              <button
-                onClick={() => setCreateModalOpen(true)}
-                className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md"
-              >
-                Open Event Creation Form
-              </button>
+              {user ? (
+                <button
+                  id="btn-open-create-modal"
+                  onClick={() => setCreateModalOpen(true)}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all"
+                >
+                  Open Event Creation Form
+                </button>
+              ) : (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-3">
+                  <p className="text-xs text-amber-800 font-medium">You must be logged in to create and publish events.</p>
+                  <button
+                    id="btn-create-login-prompt"
+                    onClick={() => setAuthModalOpen(true)}
+                    className="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                  >
+                    Log In to Continue
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

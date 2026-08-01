@@ -75,6 +75,7 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
           <button
             id="btn-category-more"
             onClick={() => setMoreDropdownOpen(!moreDropdownOpen)}
+            aria-label="More categories dropdown"
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-white text-slate-700 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all whitespace-nowrap"
           >
             <span>More</span>

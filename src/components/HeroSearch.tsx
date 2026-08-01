@@ -59,6 +59,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
             <input
               id="input-location"
               type="text"
+              aria-label="Location"
               value={filters.locationQuery || (location.isDetected ? location.city : 'Use my location')}
               onChange={(e) => setFilters((prev) => ({ ...prev, locationQuery: e.target.value }))}
               placeholder="Use my location"
@@ -69,6 +70,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
               type="button"
               onClick={onRequestLocation}
               disabled={isLocating}
+              aria-label="Detect my current location"
               className="p-1 text-blue-600 hover:text-blue-800 rounded-lg transition-colors shrink-0"
               title="Detect my current location"
             >
@@ -87,6 +89,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
               id="input-search-events"
               ref={searchInputRef}
               type="text"
+              aria-label="Search events, venues..."
               value={filters.searchQuery}
               onChange={(e) => setFilters((prev) => ({ ...prev, searchQuery: e.target.value }))}
               onKeyDown={(e) => e.key === 'Enter' && onExecuteSearch()}
@@ -99,6 +102,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
           <div className="md:col-span-2 relative flex items-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2.5 transition-colors">
             <select
               id="select-category"
+              aria-label="Filter events by category"
               value={filters.category}
               onChange={(e) => setFilters((prev) => ({ ...prev, category: e.target.value }))}
               className="w-full bg-transparent text-sm font-medium text-slate-700 cursor-pointer focus:outline-none appearance-none pr-6"
@@ -116,6 +120,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
           <div className="md:col-span-2 relative flex items-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2.5 transition-colors">
             <select
               id="select-date-filter"
+              aria-label="Filter events by date"
               value={filters.dateFilter}
               onChange={(e) => setFilters((prev) => ({ ...prev, dateFilter: e.target.value }))}
               className="w-full bg-transparent text-sm font-medium text-slate-700 cursor-pointer focus:outline-none appearance-none pr-6"

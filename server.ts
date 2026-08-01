@@ -124,7 +124,71 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Security Hardening: Disable Express header
+  app.disable('x-powered-by');
+
+  // Security Hardening Middleware: HTTP Headers & CSP
+  app.use((req, res, next) => {
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'"
+    );
+    next();
+  });
+
   app.use(express.json());
+
+  // Sliding Window Rate Limiter
+  const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+  const createRateLimiter = (maxRequests: number, windowMs: number) => {
+    return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
+      const key = `${req.path}:${ip}`;
+      const now = Date.now();
+      const record = rateLimitMap.get(key);
+
+      if (!record || now > record.resetTime) {
+        rateLimitMap.set(key, { count: 1, resetTime: now + windowMs });
+        return next();
+      }
+
+      if (record.count >= maxRequests) {
+        return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+      }
+
+      record.count += 1;
+      next();
+    };
+  };
+
+  const generalLimiter = createRateLimiter(60, 60000); // 60 requests/min
+  const apiLimiter = createRateLimiter(20, 60000); // 20 requests/min for AI & Geocode
+
+  // Auth Verification Middleware
+  const authenticateToken = (req: express.Request & { user?: any }, res: express.Response, next: express.NextFunction) => {
+    const authHeader = req.headers.authorization;
+    let token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+
+    if (!token && req.headers.cookie) {
+      const match = req.headers.cookie.match(/nearevent_jwt=([^;]+)/);
+      if (match) token = match[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      req.user = decoded;
+      next();
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+  };
 
   // MongoDB Atlas Connection Setup
   let isMongoConnected = false;
@@ -164,12 +228,13 @@ async function startServer() {
   // Seed & Sync MongoDB with initial events
   if (isMongoConnected) {
     try {
-      // Clean up legacy demo events and requested deleted events
+      // Clean up legacy demo events, untitled test events, and requested deleted events
       const currentIds = INITIAL_EVENTS.map((e) => e.id);
       await EventModel.deleteMany({
         $or: [
           { eventId: { $nin: currentIds }, source: { $in: ['database', 'api', undefined] } },
-          { title: { $regex: /arijit|mindspark/i } },
+          { title: { $regex: /arijit|mindspark|untitled event/i } },
+          { source: 'user', title: { $regex: /untitled/i } },
         ],
       });
 
@@ -269,6 +334,13 @@ async function startServer() {
         { expiresIn: '7d' }
       );
 
+      res.setHeader(
+        'Set-Cookie',
+        `nearevent_jwt=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${
+          process.env.NODE_ENV === 'production' ? '; Secure' : ''
+        }`
+      );
+
       const { password: _, ...userWithoutPassword } = userObj;
       res.status(201).json({ token, user: userWithoutPassword });
     } catch (err) {
@@ -318,6 +390,13 @@ async function startServer() {
         { userId: userObj.id, email: userObj.email, name: userObj.name, role: userObj.role },
         JWT_SECRET,
         { expiresIn: '7d' }
+      );
+
+      res.setHeader(
+        'Set-Cookie',
+        `nearevent_jwt=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${
+          process.env.NODE_ENV === 'production' ? '; Secure' : ''
+        }`
       );
 
       const { password: _, ...userWithoutPassword } = userObj;
@@ -696,34 +775,63 @@ async function startServer() {
     res.json({ event: sanitizedEvent });
   });
 
-  // POST /api/events - Submit new event
-  app.post('/api/events', async (req, res) => {
+  // POST /api/events - Submit new event (Requires Auth + Moderation & Input Validation)
+  app.post('/api/events', authenticateToken, async (req: any, res) => {
     try {
+      const { title, description, category, subtype, venue, address, city, state, country, latitude, longitude, startDate, timeString, organizer, price, registrationUrl, imageUrl, tags } = req.body;
+
+      // Server-side field validation
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        return res.status(400).json({ error: 'Event title is required and cannot be empty' });
+      }
+      if (!venue || typeof venue !== 'string' || venue.trim().length === 0) {
+        return res.status(400).json({ error: 'Venue is required' });
+      }
+      if (!city || typeof city !== 'string' || city.trim().length === 0) {
+        return res.status(400).json({ error: 'City is required' });
+      }
+
+      // Sanitize & Validate URLs
+      const validateUrl = (urlStr?: string): string => {
+        if (!urlStr || typeof urlStr !== 'string') return 'https://near-event.app';
+        const trimmed = urlStr.trim();
+        if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
+          return trimmed;
+        }
+        return 'https://near-event.app';
+      };
+
+      const cleanRegUrl = validateUrl(registrationUrl);
+      const cleanImgUrl = validateUrl(imageUrl) || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80';
+
       const eventId = `user-${Date.now()}`;
+      // Moderation: Admin submissions auto-approve, user submissions default to 'pending'
+      const initialStatus = req.user && req.user.role === 'admin' ? 'approved' : 'pending';
+
       const newEvt: any = {
         id: eventId,
         eventId,
-        title: req.body.title || 'Untitled Event',
-        description: req.body.description || '',
-        category: req.body.category || 'Tech',
-        subtype: req.body.subtype || 'Community',
-        venue: req.body.venue || 'City Center',
-        address: req.body.address || '',
-        city: req.body.city || 'Pune',
-        state: req.body.state || 'Maharashtra',
-        country: req.body.country || 'India',
-        latitude: req.body.latitude ? parseFloat(req.body.latitude) : 18.5204,
-        longitude: req.body.longitude ? parseFloat(req.body.longitude) : 73.8567,
-        startDate: req.body.startDate || new Date().toISOString().split('T')[0],
-        timeString: req.body.timeString || '10:00 AM - 4:00 PM',
-        organizer: req.body.organizer || 'Community Organizer',
-        price: req.body.price ? parseFloat(req.body.price) : 0,
+        title: title.trim().slice(0, 150),
+        description: (description || '').trim().slice(0, 2000),
+        category: (category || 'Tech').trim(),
+        subtype: (subtype || 'Community').trim(),
+        venue: venue.trim().slice(0, 150),
+        address: (address || '').trim().slice(0, 200),
+        city: city.trim().slice(0, 100),
+        state: (state || 'Maharashtra').trim().slice(0, 100),
+        country: (country || 'India').trim().slice(0, 100),
+        latitude: latitude ? parseFloat(latitude) : 18.5204,
+        longitude: longitude ? parseFloat(longitude) : 73.8567,
+        startDate: startDate || new Date().toISOString().split('T')[0],
+        timeString: timeString || '10:00 AM - 4:00 PM',
+        organizer: (organizer || req.user?.name || 'Community Organizer').trim().slice(0, 100),
+        price: price ? Math.max(0, parseFloat(price)) : 0,
         currency: 'INR',
-        registrationUrl: req.body.registrationUrl || 'https://near-event.app',
-        imageUrl: req.body.imageUrl || 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&q=80',
-        status: 'approved',
+        registrationUrl: cleanRegUrl,
+        imageUrl: cleanImgUrl,
+        status: initialStatus,
         source: 'user',
-        tags: req.body.tags || ['Community', 'Event'],
+        tags: Array.isArray(tags) ? tags.map((t: string) => String(t).trim().slice(0, 30)) : ['Community'],
       };
 
       if (isMongoConnected) {
@@ -731,14 +839,17 @@ async function startServer() {
       }
       eventsDatabase.unshift(newEvt);
 
-      res.status(201).json({ message: 'Event created successfully', event: newEvt });
+      res.status(201).json({
+        message: initialStatus === 'approved' ? 'Event published successfully' : 'Event submitted for admin review',
+        event: newEvt,
+      });
     } catch (err) {
-      res.status(400).json({ error: 'Invalid event data' });
+      res.status(400).json({ error: 'Invalid event payload' });
     }
   });
 
-  // Reverse Geocoding via Nominatim
-  app.get('/api/geocode/reverse', async (req, res) => {
+  // Reverse Geocoding via Nominatim (Rate limited)
+  app.get('/api/geocode/reverse', apiLimiter, async (req, res) => {
     const { lat, lon } = req.query;
     if (!lat || !lon) {
       return res.status(400).json({ error: 'lat and lon are required' });
@@ -773,8 +884,8 @@ async function startServer() {
     res.json({ city: 'Pune', state: 'Maharashtra', country: 'India' });
   });
 
-  // Search Location via Nominatim
-  app.get('/api/geocode/search', async (req, res) => {
+  // Search Location via Nominatim (Rate limited)
+  app.get('/api/geocode/search', apiLimiter, async (req, res) => {
     const { q } = req.query;
     if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: 'q search query parameter required' });
@@ -812,8 +923,8 @@ async function startServer() {
     res.status(404).json({ error: 'Location not found' });
   });
 
-  // Gemini AI: Summarize Event Description
-  app.post('/api/gemini/summarize', async (req, res) => {
+  // Gemini AI: Summarize Event Description (Auth + Rate Limited)
+  app.post('/api/gemini/summarize', authenticateToken, apiLimiter, async (req, res) => {
     const { description } = req.body;
     if (!description) {
       return res.status(400).json({ error: 'Description is required' });
@@ -838,8 +949,8 @@ async function startServer() {
     }
   });
 
-  // Gemini AI: Personalized Recommendations
-  app.post('/api/gemini/recommend', async (req, res) => {
+  // Gemini AI: Personalized Recommendations (Auth + Rate Limited)
+  app.post('/api/gemini/recommend', authenticateToken, apiLimiter, async (req, res) => {
     const { city = 'Pune', userInterests = ['Tech', 'Startup', 'Music'] } = req.body;
 
     if (!ai) {

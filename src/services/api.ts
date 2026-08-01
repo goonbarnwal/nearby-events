@@ -92,9 +92,13 @@ export async function searchLocation(query: string): Promise<{
  */
 export async function generateAiSummary(eventId: string, description: string): Promise<string> {
   try {
+    const token = localStorage.getItem('nearevent_jwt');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch('/api/gemini/summarize', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ eventId, description }),
     });
     if (res.ok) {
@@ -112,9 +116,13 @@ export async function generateAiSummary(eventId: string, description: string): P
  */
 export async function getAiRecommendations(userInterests: string[], city: string): Promise<AIRecommendationResponse> {
   try {
+    const token = localStorage.getItem('nearevent_jwt');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch('/api/gemini/recommend', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ userInterests, city }),
     });
     if (res.ok) {
@@ -135,9 +143,13 @@ export async function getAiRecommendations(userInterests: string[], city: string
  */
 export async function createEvent(eventData: Partial<EventItem>): Promise<EventItem | null> {
   try {
+    const token = localStorage.getItem('nearevent_jwt');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch('/api/events', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(eventData),
     });
     if (res.ok) {

@@ -58,6 +58,7 @@ export const CreateEventModal: React.FC<CreateEventModalProps> = ({ onClose, onS
         <button
           id="btn-close-create-modal"
           onClick={onClose}
+          aria-label="Close event creation modal"
           className="absolute top-6 right-6 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
         >
           <X className="w-5 h-5" />

@@ -142,6 +142,7 @@ export const EventCard: React.FC<EventCardProps> = ({
                 : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
             }`}
             title={isBookmarked ? 'Remove Bookmark' : 'Bookmark Event'}
+            aria-label={isBookmarked ? 'Remove Bookmark' : 'Bookmark Event'}
           >
             <Bookmark
               className={`w-4 h-4 stroke-[2] ${

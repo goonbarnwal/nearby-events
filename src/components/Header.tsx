@@ -38,7 +38,9 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xl font-extrabold text-slate-900 tracking-tight">Nearby Event</span>
+                <span className="text-xl font-extrabold text-slate-900 tracking-tight">
+                  Near<span className="text-blue-600">Event</span>
+                </span>
               </div>
               <p className="text-[11px] font-medium text-slate-500 tracking-wide">Discover Events Near You</p>
             </div>
@@ -110,6 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onTriggerSearchFocus}
               className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors mr-1"
               title="Search"
+              aria-label="Search events"
             >
               <Search className="w-5 h-5 stroke-[2]" />
             </button>
@@ -135,6 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
                     onClick={onLogout}
                     className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-50"
                     title="Logout"
+                    aria-label="Logout of account"
                   >
                     <LogOut className="w-4 h-4" />
                   </button>
