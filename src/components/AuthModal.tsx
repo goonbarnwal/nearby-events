@@ -315,7 +315,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
               if (!savedUser) return null;
               return (
                 <>
-                  <div className="mb-3 space-y-2">
+                  <div className="mb-3 space-y-1">
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Saved Account</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          localStorage.removeItem('nearevent_saved_user');
+                          setError(null);
+                        }}
+                        className="text-[10px] font-bold text-slate-400 hover:text-red-600 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleExecuteGoogleLogin(savedUser.name, savedUser.email)}
@@ -330,7 +343,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
                         <p className="text-[11px] text-slate-500 truncate">{savedUser.email}</p>
                       </div>
                       <span className="text-[10px] font-extrabold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                        Saved Profile
+                        Sign In
                       </span>
                     </button>
                   </div>
@@ -348,9 +361,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (customGoogleName && customGoogleEmail) {
-                  handleExecuteGoogleLogin(customGoogleName.trim(), customGoogleEmail.trim());
+                const cleanEmail = customGoogleEmail.trim();
+                const cleanName = customGoogleName.trim() || cleanEmail.split('@')[0];
+                if (!cleanEmail || !cleanEmail.includes('@')) {
+                  setError('Please enter a valid Google email address.');
+                  return;
                 }
+                handleExecuteGoogleLogin(cleanName, cleanEmail);
               }}
               className="space-y-3 mt-2"
             >
@@ -581,18 +598,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
             <button
               type="button"
               onClick={() => {
-                const saved = getSavedUser();
-                if (email.trim()) {
-                  setCustomGoogleEmail(email.trim());
-                  setCustomGoogleName(name.trim() || email.trim().split('@')[0]);
-                } else if (saved?.email) {
-                  setCustomGoogleEmail(saved.email);
-                  setCustomGoogleName(saved.name || saved.email.split('@')[0]);
+                const cleanEmail = email.trim();
+                const cleanName = name.trim();
+                if (cleanEmail && cleanEmail.includes('@')) {
+                  // Direct Google Login if user already entered email in form
+                  handleExecuteGoogleLogin(cleanName || cleanEmail.split('@')[0], cleanEmail);
                 } else {
+                  // Otherwise open Google account selector prompt with clean inputs
                   setCustomGoogleEmail('');
-                  setCustomGoogleName('');
+                  setCustomGoogleName(cleanName || '');
+                  setShowGooglePicker(true);
                 }
-                setShowGooglePicker(true);
               }}
               disabled={loading}
               className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-2.5 disabled:opacity-50"
