@@ -87,12 +87,13 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
       cleanUrl.includes('google.com/search') ||
       cleanUrl.includes('ET003') ||
       cleanUrl.includes('ET00') ||
+      cleanUrl.includes('insider.in') ||
       /bookmyshow\.com\/events\//i.test(cleanUrl) ||
       /unstop\.com\/events\/[a-z0-9-]+$/i.test(cleanUrl) ||
       /unstop\.com\/hackathons\/[a-z0-9-]+$/i.test(cleanUrl) ||
       /unstop\.com\/o\/[a-z0-9-]+$/i.test(cleanUrl) ||
       /devfolio\.co\/hackathons\/[a-z0-9-]+$/i.test(cleanUrl) ||
-      /insider\.in\/[a-z0-9-]+\/event/i.test(cleanUrl);
+      /insider\.in/i.test(cleanUrl);
 
     if (!isFakeOrDead) {
       return cleanUrl;
@@ -129,7 +130,7 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
 
   // 4. Food, Festivals, Culinary
   if (catLower.includes('food') || catLower.includes('festival') || catLower.includes('culinary')) {
-    return `https://insider.in/all-events-in-${citySlug}`;
+    return `https://in.bookmyshow.com/explore/food-drinks-${citySlug}`;
   }
 
   // 5. Tech, Startup, Meetup, Business, Workshop
