@@ -781,6 +781,8 @@ async function startServer() {
           searchTerms.push('mumbai', 'navi mumbai', 'thane');
         } else if (['bangalore', 'bengaluru', 'whitefield', 'koramangala'].some(k => cityLower.includes(k))) {
           searchTerms.push('bangalore', 'bengaluru');
+        } else if (['hyderabad', 'secunderabad', 'hitech city', 'gachibowli', 'jubilee hills'].some(k => cityLower.includes(k))) {
+          searchTerms.push('hyderabad', 'secunderabad', 'hitech', 't-hub');
         }
 
         const cityMatches = results.filter((e) => {
@@ -793,8 +795,8 @@ async function startServer() {
         if (cityMatches.length > 0) {
           results = cityMatches;
         } else {
-          // Fallback to closest genuine real events by proximity
-          const nearby = results.filter((e) => (e.distanceKm ?? 0) <= (radiusKm || 100));
+          // If no direct city string matches, sort by distance to target coordinates and filter by radius
+          const nearby = results.filter((e) => (e.distanceKm ?? 0) <= (radiusKm || 500));
           if (nearby.length > 0) {
             results = nearby;
           }
@@ -812,46 +814,50 @@ async function startServer() {
           const mainCat = (e.category || '').toLowerCase();
           const subType = (e.subtype || '').toLowerCase();
           const titleLower = (e.title || '').toLowerCase();
+          const tagsLower = (e.tags || []).map((t: string) => String(t).toLowerCase());
 
-          // Exclude hackathons from non-hackathon categories
-          if (catLower !== 'hackathon') {
-            if (mainCat === 'hackathon' || subType === 'hackathon' || titleLower.includes('hackathon')) {
-              return false;
-            }
-          }
-
-          if (catLower === 'sports') {
-            return mainCat === 'sports' || subType === 'sports' || subType === 'marathon';
-          }
           if (catLower === 'hackathon') {
-            return mainCat === 'hackathon' || subType === 'hackathon' || titleLower.includes('hackathon');
+            return mainCat === 'hackathon' || subType === 'hackathon' || titleLower.includes('hackathon') || tagsLower.includes('hackathon');
           }
           if (catLower === 'tech') {
-            return mainCat === 'tech';
+            return (
+              mainCat === 'tech' ||
+              mainCat === 'ai' ||
+              subType === 'tech' ||
+              subType === 'meetup' ||
+              subType === 'conference' ||
+              tagsLower.some((t: string) => ['tech', 'ai', 'cloud', 'hackathon', 'googleai', 'gemini'].includes(t)) ||
+              titleLower.includes('tech') ||
+              titleLower.includes('ai') ||
+              titleLower.includes('hackathon')
+            );
+          }
+          if (catLower === 'sports') {
+            return mainCat === 'sports' || subType === 'sports' || subType === 'marathon' || tagsLower.some((t: string) => ['sports', 'marathon', 'fitness', 'running'].includes(t));
           }
           if (catLower === 'workshop') {
-            return mainCat === 'workshop' || subType === 'workshop';
+            return mainCat === 'workshop' || subType === 'workshop' || tagsLower.includes('workshop') || titleLower.includes('workshop');
           }
           if (catLower === 'music') {
-            return mainCat === 'music' || subType === 'concert' || subType === 'festival';
+            return mainCat === 'music' || subType === 'concert' || subType === 'festival' || tagsLower.includes('music') || titleLower.includes('music') || titleLower.includes('concert');
           }
           if (catLower === 'business') {
-            return mainCat === 'business' || subType === 'summit';
+            return mainCat === 'business' || subType === 'summit' || subType === 'networking' || tagsLower.includes('business') || tagsLower.includes('leadership');
           }
           if (catLower === 'food') {
-            return mainCat === 'food' || mainCat === 'culinary';
+            return mainCat === 'food' || mainCat === 'culinary' || tagsLower.includes('food') || titleLower.includes('food');
           }
           if (catLower === 'exhibition') {
-            return mainCat === 'exhibition' || subType === 'exhibition';
+            return mainCat === 'exhibition' || subType === 'exhibition' || tagsLower.includes('exhibition') || titleLower.includes('expo');
           }
           if (catLower === 'startup') {
-            return mainCat === 'startup' || subType === 'startup';
+            return mainCat === 'startup' || subType === 'startup' || tagsLower.some((t: string) => ['startup', 'founders', 'vc'].includes(t)) || titleLower.includes('startup');
           }
           if (catLower === 'comedy') {
-            return mainCat === 'comedy' || subType === 'comedy';
+            return mainCat === 'comedy' || subType === 'comedy' || tagsLower.includes('comedy') || titleLower.includes('comedy');
           }
 
-          return mainCat === catLower || subType === catLower;
+          return mainCat === catLower || subType === catLower || tagsLower.includes(catLower) || titleLower.includes(catLower);
         });
       }
 
@@ -1275,6 +1281,31 @@ async function startServer() {
       return res.status(400).json({ error: 'q search query parameter required' });
     }
 
+    const cleanQ = q.trim().toLowerCase();
+    const knownMap: Record<string, any> = {
+      pune: { city: 'Pune', state: 'Maharashtra', country: 'India', latitude: 18.5204, longitude: 73.8567 },
+      mumbai: { city: 'Mumbai', state: 'Maharashtra', country: 'India', latitude: 19.0760, longitude: 72.8777 },
+      delhi: { city: 'Delhi', state: 'Delhi', country: 'India', latitude: 28.6139, longitude: 77.2090 },
+      gurgaon: { city: 'Delhi', state: 'Haryana', country: 'India', latitude: 28.4595, longitude: 77.0266 },
+      gurugram: { city: 'Delhi', state: 'Haryana', country: 'India', latitude: 28.4595, longitude: 77.0266 },
+      noida: { city: 'Delhi', state: 'Uttar Pradesh', country: 'India', latitude: 28.5355, longitude: 77.3910 },
+      bangalore: { city: 'Bangalore', state: 'Karnataka', country: 'India', latitude: 12.9716, longitude: 77.5946 },
+      bengaluru: { city: 'Bangalore', state: 'Karnataka', country: 'India', latitude: 12.9716, longitude: 77.5946 },
+      hyderabad: { city: 'Hyderabad', state: 'Telangana', country: 'India', latitude: 17.3850, longitude: 78.4867 },
+      chennai: { city: 'Chennai', state: 'Tamil Nadu', country: 'India', latitude: 13.0827, longitude: 80.2707 },
+      kolkata: { city: 'Kolkata', state: 'West Bengal', country: 'India', latitude: 22.5726, longitude: 88.3639 },
+      ahmedabad: { city: 'Ahmedabad', state: 'Gujarat', country: 'India', latitude: 23.0225, longitude: 72.5714 },
+      jaipur: { city: 'Jaipur', state: 'Rajasthan', country: 'India', latitude: 26.9124, longitude: 75.7873 },
+    };
+
+    if (knownMap[cleanQ]) {
+      return res.json(knownMap[cleanQ]);
+    }
+    const foundKey = Object.keys(knownMap).find((k) => cleanQ.includes(k) || k.includes(cleanQ));
+    if (foundKey) {
+      return res.json(knownMap[foundKey]);
+    }
+
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`,
@@ -1304,7 +1335,13 @@ async function startServer() {
       console.warn('Geocode search error:', err);
     }
 
-    res.status(404).json({ error: 'Location not found' });
+    res.json({
+      city: q.trim(),
+      state: 'India',
+      country: 'India',
+      latitude: 18.5204,
+      longitude: 73.8567,
+    });
   });
 
   // Gemini AI: Summarize Event Description (Auth + Rate Limited)

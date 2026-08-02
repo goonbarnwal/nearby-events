@@ -11,6 +11,8 @@ interface SidebarWidgetsProps {
   bookmarkedIds: string[];
   onToggleBookmark: (eventId: string, e: React.MouseEvent) => void;
   onSelectCategory?: (category: string) => void;
+  currentCity?: string;
+  currentCategory?: string;
 }
 
 export const SidebarWidgets: React.FC<SidebarWidgetsProps> = ({
@@ -21,6 +23,8 @@ export const SidebarWidgets: React.FC<SidebarWidgetsProps> = ({
   bookmarkedIds,
   onToggleBookmark,
   onSelectCategory,
+  currentCity,
+  currentCategory,
 }) => {
   const popularCategories = [
     'Tech',
@@ -51,17 +55,28 @@ export const SidebarWidgets: React.FC<SidebarWidgetsProps> = ({
         </h2>
 
         <div className="divide-y divide-slate-100">
-          {popularCategories.map((cat) => (
-            <button
-              key={cat}
-              id={`cat-link-${cat.toLowerCase()}`}
-              onClick={() => onSelectCategory && onSelectCategory(cat === 'More' ? 'All' : cat)}
-              className="w-full flex items-center justify-between py-2.5 text-xs sm:text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50/80 px-1 rounded-lg transition-colors text-left group"
-            >
-              <span>{cat}</span>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
-            </button>
-          ))}
+          {popularCategories.map((cat) => {
+            const isCatActive =
+              currentCategory &&
+              (currentCategory.toLowerCase() === cat.toLowerCase() ||
+                (cat === 'More' && currentCategory === 'All'));
+
+            return (
+              <button
+                key={cat}
+                id={`cat-link-${cat.toLowerCase()}`}
+                onClick={() => onSelectCategory && onSelectCategory(cat === 'More' ? 'All' : cat)}
+                className={`w-full flex items-center justify-between py-2.5 text-xs sm:text-sm font-medium px-2 rounded-lg transition-colors text-left group ${
+                  isCatActive
+                    ? 'bg-blue-50 text-blue-700 font-bold'
+                    : 'text-slate-700 hover:text-blue-600 hover:bg-slate-50/80'
+                }`}
+              >
+                <span>{cat}</span>
+                <ChevronRight className={`w-4 h-4 transition-all ${isCatActive ? 'text-blue-600 translate-x-0.5' : 'text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5'}`} />
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -72,17 +87,26 @@ export const SidebarWidgets: React.FC<SidebarWidgetsProps> = ({
         </h2>
 
         <div className="divide-y divide-slate-100">
-          {popularCities.map((cityName) => (
-            <button
-              key={cityName}
-              id={`city-link-${cityName.toLowerCase()}`}
-              onClick={() => onSelectCity(cityName)}
-              className="w-full flex items-center justify-between py-2.5 text-xs sm:text-sm font-medium text-slate-700 hover:text-blue-600 hover:bg-slate-50/80 px-1 rounded-lg transition-colors text-left group"
-            >
-              <span>{cityName}</span>
-              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
-            </button>
-          ))}
+          {popularCities.map((cityName) => {
+            const isCityActive =
+              currentCity && currentCity.toLowerCase().includes(cityName.toLowerCase());
+
+            return (
+              <button
+                key={cityName}
+                id={`city-link-${cityName.toLowerCase()}`}
+                onClick={() => onSelectCity(cityName)}
+                className={`w-full flex items-center justify-between py-2.5 text-xs sm:text-sm font-medium px-2 rounded-lg transition-colors text-left group ${
+                  isCityActive
+                    ? 'bg-blue-50 text-blue-700 font-bold'
+                    : 'text-slate-700 hover:text-blue-600 hover:bg-slate-50/80'
+                }`}
+              >
+                <span>{cityName}</span>
+                <ChevronRight className={`w-4 h-4 transition-all ${isCityActive ? 'text-blue-600 translate-x-0.5' : 'text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5'}`} />
+              </button>
+            );
+          })}
         </div>
       </div>
 

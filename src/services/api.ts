@@ -63,6 +63,22 @@ export async function reverseGeocode(lat: number, lon: number): Promise<UserLoca
   };
 }
 
+export const KNOWN_CITIES: Record<string, { city: string; state: string; country: string; latitude: number; longitude: number }> = {
+  pune: { city: 'Pune', state: 'Maharashtra', country: 'India', latitude: 18.5204, longitude: 73.8567 },
+  mumbai: { city: 'Mumbai', state: 'Maharashtra', country: 'India', latitude: 19.0760, longitude: 72.8777 },
+  delhi: { city: 'Delhi', state: 'Delhi', country: 'India', latitude: 28.6139, longitude: 77.2090 },
+  gurgaon: { city: 'Delhi', state: 'Haryana', country: 'India', latitude: 28.4595, longitude: 77.0266 },
+  gurugram: { city: 'Delhi', state: 'Haryana', country: 'India', latitude: 28.4595, longitude: 77.0266 },
+  noida: { city: 'Delhi', state: 'Uttar Pradesh', country: 'India', latitude: 28.5355, longitude: 77.3910 },
+  bangalore: { city: 'Bangalore', state: 'Karnataka', country: 'India', latitude: 12.9716, longitude: 77.5946 },
+  bengaluru: { city: 'Bangalore', state: 'Karnataka', country: 'India', latitude: 12.9716, longitude: 77.5946 },
+  hyderabad: { city: 'Hyderabad', state: 'Telangana', country: 'India', latitude: 17.3850, longitude: 78.4867 },
+  chennai: { city: 'Chennai', state: 'Tamil Nadu', country: 'India', latitude: 13.0827, longitude: 80.2707 },
+  kolkata: { city: 'Kolkata', state: 'West Bengal', country: 'India', latitude: 22.5726, longitude: 88.3639 },
+  ahmedabad: { city: 'Ahmedabad', state: 'Gujarat', country: 'India', latitude: 23.0225, longitude: 72.5714 },
+  jaipur: { city: 'Jaipur', state: 'Rajasthan', country: 'India', latitude: 26.9124, longitude: 75.7873 },
+};
+
 /**
  * Forward geocode a city/place string to get coordinates.
  */
@@ -73,6 +89,20 @@ export async function searchLocation(query: string): Promise<{
   latitude: number;
   longitude: number;
 } | null> {
+  if (!query || typeof query !== 'string') return null;
+  const cleanQ = query.trim().toLowerCase();
+
+  // 1. Instant lookup for popular Indian cities
+  if (KNOWN_CITIES[cleanQ]) {
+    return KNOWN_CITIES[cleanQ];
+  }
+
+  const foundKey = Object.keys(KNOWN_CITIES).find((k) => cleanQ.includes(k) || k.includes(cleanQ));
+  if (foundKey) {
+    return KNOWN_CITIES[foundKey];
+  }
+
+  // 2. Fetch from backend geocoding endpoint
   try {
     const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(query)}`);
     if (res.ok) {
@@ -84,7 +114,15 @@ export async function searchLocation(query: string): Promise<{
   } catch (err) {
     console.warn('Location search error:', err);
   }
-  return null;
+
+  // Fallback to query string with default coordinates
+  return {
+    city: query.trim(),
+    state: 'India',
+    country: 'India',
+    latitude: 18.5204,
+    longitude: 73.8567,
+  };
 }
 
 /**

@@ -130,10 +130,10 @@ export default function App() {
     }
   };
 
-  // 2. Fetch fresh events whenever location or filter category changes
+  // 2. Fetch fresh events whenever location, coordinates, or filter category changes
   useEffect(() => {
     loadEventsData();
-  }, [location.city, filters.category]);
+  }, [location.city, location.latitude, location.longitude, filters.category, filters.dateFilter]);
 
   const [locationError, setLocationError] = useState<string | null>(null);
 
@@ -289,11 +289,26 @@ export default function App() {
     }
   };
 
+  // Category Selector
+  const handleSelectCategory = (catName: string) => {
+    const targetCat = catName === 'All Categories' ? 'All' : catName;
+    setFilters((prev) => ({ ...prev, category: targetCat }));
+    setVisibleCount(5);
+    if (activeTab !== 'home' && activeTab !== 'events') {
+      setActiveTab('home');
+    }
+  };
+
   // City Selector from Popular Cities
   const handleSelectCity = async (cityName: string) => {
     if (!cityName) {
       setFilters((prev) => ({ ...prev, locationQuery: '', category: 'All' }));
       return;
+    }
+
+    setVisibleCount(5);
+    if (activeTab !== 'home' && activeTab !== 'events') {
+      setActiveTab('home');
     }
 
     const geo = await searchLocation(cityName);
@@ -355,14 +370,25 @@ export default function App() {
               searchInputRef={searchInputRef}
             />
 
+            {/* Interactive Category Pills Bar */}
+            <CategoryPills
+              selectedCategory={filters.category}
+              onSelectCategory={handleSelectCategory}
+            />
+
             {/* 2-Column Grid Layout matching screenshot */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-4">
               
               {/* Left Column (Main Events List ~68% width) */}
               <div className="lg:col-span-8 space-y-4">
                 
-                <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
-                  Upcoming Events
+                <h2 className="text-lg font-extrabold text-slate-900 tracking-tight flex items-center justify-between">
+                  <span>Upcoming Events</span>
+                  {filters.category !== 'All' && filters.category !== '' && (
+                    <span className="text-xs font-semibold px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full">
+                      Category: {filters.category}
+                    </span>
+                  )}
                 </h2>
 
                 {/* Event Cards Grouped Card Box */}
@@ -376,6 +402,20 @@ export default function App() {
                       onToggleBookmark={handleToggleBookmark}
                     />
                   ))}
+
+                  {allEvents.length === 0 && (
+                    <div className="p-8 text-center text-slate-500">
+                      <p className="font-semibold text-sm">No events found matching your filter.</p>
+                      <button
+                        onClick={() => {
+                          setFilters((prev) => ({ ...prev, category: 'All', searchQuery: '' }));
+                        }}
+                        className="mt-3 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Reset Filters
+                      </button>
+                    </div>
+                  )}
 
                   {/* Load More Button */}
                   {visibleCount < allEvents.length && (
@@ -400,7 +440,9 @@ export default function App() {
                   onOpenAiRecommendations={() => setAiRecsModalOpen(true)}
                   bookmarkedIds={bookmarkedIds}
                   onToggleBookmark={handleToggleBookmark}
-                  onSelectCategory={(cat) => setFilters((prev) => ({ ...prev, category: cat }))}
+                  onSelectCategory={handleSelectCategory}
+                  currentCity={location.city}
+                  currentCategory={filters.category}
                 />
               </div>
 
