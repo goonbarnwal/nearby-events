@@ -176,6 +176,7 @@ async function startServer() {
 
   const generalLimiter = createRateLimiter(60, 60000); // 60 requests/min
   const apiLimiter = createRateLimiter(20, 60000); // 20 requests/min for AI & Geocode
+  const authLimiter = createRateLimiter(10, 60000); // 10 requests/min for Auth (prevent brute force)
 
   // Auth Verification Middleware
   const authenticateToken = (req: express.Request & { user?: any }, res: express.Response, next: express.NextFunction) => {
@@ -292,7 +293,7 @@ async function startServer() {
   // ==========================================
 
   // Register Endpoint
-  app.post('/api/auth/register', async (req, res) => {
+  app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
       const { name, email, password } = req.body;
       if (!name || !email || !password) {
@@ -362,7 +363,7 @@ async function startServer() {
   });
 
   // Login Endpoint
-  app.post('/api/auth/login', async (req, res) => {
+  app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
       const { email, password } = req.body;
       if (!email || !password) {
