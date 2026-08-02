@@ -58,64 +58,50 @@ const EventSchema = new mongoose.Schema(
 
 function fixRegistrationUrl(url?: string, title?: string, category?: string, city?: string): string {
   const cleanUrl = url ? url.trim() : '';
+  const titleClean = title || 'event';
+  const cityClean = city || 'India';
 
-  // Check if it's a generic homepage or missing URL
-  const isGeneric =
-    !cleanUrl ||
-    cleanUrl.includes('mumbaitechsummit') ||
-    cleanUrl.includes('example.com') ||
-    cleanUrl === 'https://near-event.app' ||
-    cleanUrl === 'https://unstop.com' ||
-    cleanUrl === 'https://unstop.com/' ||
-    cleanUrl === 'https://unstop.com/hackathons' ||
-    cleanUrl === 'https://unstop.com/events' ||
-    cleanUrl === 'https://devfolio.co' ||
-    cleanUrl === 'https://devfolio.co/' ||
-    cleanUrl === 'https://devfolio.co/hackathons' ||
-    cleanUrl.endsWith('bookmyshow.com') ||
-    cleanUrl.endsWith('bookmyshow.com/') ||
-    cleanUrl.includes('bookmyshow.com/explore') ||
-    cleanUrl.includes('insider.in/all-events') ||
-    cleanUrl.includes('eventbrite.com/d/');
+  // Check if it's a real custom URL provided by a user or real integration
+  if (cleanUrl && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
+    const isFakeOrDead =
+      cleanUrl.includes('mumbaitechsummit') ||
+      cleanUrl.includes('example.com') ||
+      cleanUrl === 'https://near-event.app' ||
+      cleanUrl.includes('gen-') ||
+      cleanUrl.includes('patna-ai-innovation-summit') ||
+      cleanUrl.includes('hack4patna') ||
+      /unstop\.com\/events\/[a-z0-9-]+$/i.test(cleanUrl) ||
+      /devfolio\.co\/hackathons\/[a-z0-9-]+$/i.test(cleanUrl) ||
+      /bookmyshow\.com\/events\/[a-z0-9-]+\/ET003/i.test(cleanUrl) ||
+      /lu\.ma\/[a-z0-9-]+$/i.test(cleanUrl) ||
+      /insider\.in\/[a-z0-9-]+\/event/i.test(cleanUrl);
 
-  if (!isGeneric && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
-    return cleanUrl;
-  }
-
-  // Construct deterministic, event-specific deep link based on title & city
-  const titleSlug = (title || 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  const citySlug = (city || 'india').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  const catLower = (category || '').toLowerCase();
-
-  let hash = 0;
-  const str = `${titleSlug}-${citySlug}`;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  const idNum = Math.abs(hash);
-
-  if (catLower.includes('hackathon') || titleSlug.includes('hackathon') || titleSlug.includes('coding') || titleSlug.includes('code')) {
-    if (idNum % 2 === 0) {
-      return `https://unstop.com/hackathons/${titleSlug}-${citySlug}-${10000 + (idNum % 89999)}`;
-    } else {
-      return `https://devfolio.co/hackathons/${titleSlug}-${citySlug}`;
+    if (!isFakeOrDead) {
+      return cleanUrl;
     }
   }
 
+  // Generate real, 100% working search/registration links on official portals
+  const catLower = (category || '').toLowerCase();
+  const titleLower = titleClean.toLowerCase();
+
+  if (catLower.includes('hackathon') || titleLower.includes('hackathon') || titleLower.includes('coding') || titleLower.includes('code')) {
+    return `https://unstop.com/search?q=${encodeURIComponent(titleClean)}`;
+  }
+
   if (catLower.includes('music') || catLower.includes('concert') || catLower.includes('comedy') || catLower.includes('show')) {
-    return `https://in.bookmyshow.com/events/${titleSlug}-${citySlug}/ET00398${idNum % 1000}`;
+    return `https://www.google.com/search?q=${encodeURIComponent('BookMyShow ' + titleClean + ' ' + cityClean + ' tickets')}`;
   }
 
   if (catLower.includes('food') || catLower.includes('festival') || catLower.includes('culinary')) {
-    return `https://insider.in/${titleSlug}-${citySlug}-2026/event`;
+    return `https://insider.in/search?q=${encodeURIComponent(titleClean)}`;
   }
 
   if (catLower.includes('tech') || catLower.includes('meetup') || catLower.includes('business') || catLower.includes('startup')) {
-    return `https://lu.ma/${titleSlug}-${citySlug}`;
+    return `https://www.google.com/search?q=${encodeURIComponent(titleClean + ' ' + cityClean + ' registration event')}`;
   }
 
-  return `https://unstop.com/o/${titleSlug}-${citySlug}-2026`;
+  return `https://unstop.com/search?q=${encodeURIComponent(titleClean)}`;
 }
 
 const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
@@ -981,14 +967,7 @@ function generateEventsForCity(cityName: string) {
 
   return eventTemplates.map((item, idx) => {
     const titleSlug = item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    let regUrl = `https://unstop.com/events/${titleSlug}`;
-    if (item.category === 'Music' || item.category === 'Comedy') {
-      regUrl = `https://in.bookmyshow.com/events/${titleSlug}/ET003${8000 + idx}`;
-    } else if (item.category === 'Hackathon') {
-      regUrl = `https://devfolio.co/hackathons/${titleSlug}`;
-    } else if (item.category === 'Food') {
-      regUrl = `https://insider.in/${titleSlug}/event`;
-    }
+    const regUrl = fixRegistrationUrl('', item.title, item.category, cityStr);
 
     return {
       id: `gen-${titleSlug}-${idx + 1}`,
