@@ -93,6 +93,12 @@ export const EventCard: React.FC<EventCardProps> = ({
                 </span>
               )}
 
+              {event.source === 'ticketmaster' && (
+                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-100 flex items-center gap-1">
+                  ⚡ Ticketmaster Live API
+                </span>
+              )}
+
               {/* Status Badge */}
               {showStatusBadge && event.status && (
                 event.status === 'pending' ? (

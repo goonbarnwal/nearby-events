@@ -139,13 +139,18 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
           </button>
 
           {/* Category Pill Tag */}
-          <div className="absolute bottom-4 left-4 flex items-center gap-2">
+          <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-2">
             <span className="px-3 py-1 bg-blue-600 text-white font-bold text-xs rounded-lg uppercase tracking-wider shadow-xs">
               {event.category}
             </span>
             {event.subtype && (
               <span className="px-3 py-1 bg-white/90 backdrop-blur-xs text-slate-900 font-bold text-xs rounded-lg shadow-xs">
                 {event.subtype}
+              </span>
+            )}
+            {event.source === 'ticketmaster' && (
+              <span className="px-3 py-1 bg-indigo-600 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1">
+                ⚡ Ticketmaster Live API
               </span>
             )}
           </div>
