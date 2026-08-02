@@ -59,9 +59,10 @@ const EventSchema = new mongoose.Schema(
 function fixRegistrationUrl(url?: string, title?: string, category?: string, city?: string): string {
   const cleanUrl = url ? url.trim() : '';
   const titleClean = title || 'event';
-  const cityClean = city || 'India';
+  const cityClean = (city || 'India').trim().toLowerCase();
+  const citySlug = cityClean.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-  // Check if it's a real custom URL provided by a user or real integration
+  // Check if it's a real user-submitted custom URL (e.g., Google Form, Typeform, Luma, Unstop, Devfolio)
   if (cleanUrl && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
     const isFakeOrDead =
       cleanUrl.includes('mumbaitechsummit') ||
@@ -70,38 +71,48 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
       cleanUrl.includes('gen-') ||
       cleanUrl.includes('patna-ai-innovation-summit') ||
       cleanUrl.includes('hack4patna') ||
-      /unstop\.com\/events\/[a-z0-9-]+$/i.test(cleanUrl) ||
-      /devfolio\.co\/hackathons\/[a-z0-9-]+$/i.test(cleanUrl) ||
-      /bookmyshow\.com\/events\/[a-z0-9-]+\/ET003/i.test(cleanUrl) ||
-      /lu\.ma\/[a-z0-9-]+$/i.test(cleanUrl) ||
-      /insider\.in\/[a-z0-9-]+\/event/i.test(cleanUrl);
+      cleanUrl.includes('/search?q=') ||
+      cleanUrl.includes('google.com/search');
 
     if (!isFakeOrDead) {
       return cleanUrl;
     }
   }
 
-  // Generate real, 100% working search/registration links on official portals
+  // Determine official active portal URL without 404s or search redirects
   const catLower = (category || '').toLowerCase();
   const titleLower = titleClean.toLowerCase();
 
+  // Hackathons -> Unstop or Devfolio Hackathons Portals
   if (catLower.includes('hackathon') || titleLower.includes('hackathon') || titleLower.includes('coding') || titleLower.includes('code')) {
-    return `https://unstop.com/search?q=${encodeURIComponent(titleClean)}`;
+    if (titleLower.includes('devfolio') || titleLower.includes('ju') || titleLower.includes('jaipur')) {
+      return 'https://devfolio.co/hackathons';
+    }
+    return 'https://unstop.com/hackathons';
   }
 
-  if (catLower.includes('music') || catLower.includes('concert') || catLower.includes('comedy') || catLower.includes('show')) {
-    return `https://www.google.com/search?q=${encodeURIComponent('BookMyShow ' + titleClean + ' ' + cityClean + ' tickets')}`;
+  // Music, Concerts, Comedy, Shows -> BookMyShow City Explore Portal
+  if (catLower.includes('music') || catLower.includes('concert') || catLower.includes('comedy') || catLower.includes('standup') || catLower.includes('show')) {
+    if (citySlug) {
+      return `https://in.bookmyshow.com/explore/events-${citySlug}`;
+    }
+    return 'https://in.bookmyshow.com/explore/events';
   }
 
+  // Food, Festivals, Culinary -> Paytm Insider
   if (catLower.includes('food') || catLower.includes('festival') || catLower.includes('culinary')) {
-    return `https://insider.in/search?q=${encodeURIComponent(titleClean)}`;
+    if (citySlug) {
+      return `https://insider.in/all-events-in-${citySlug}`;
+    }
+    return 'https://insider.in/';
   }
 
-  if (catLower.includes('tech') || catLower.includes('meetup') || catLower.includes('business') || catLower.includes('startup')) {
-    return `https://www.google.com/search?q=${encodeURIComponent(titleClean + ' ' + cityClean + ' registration event')}`;
+  // Tech, Startup, Meetup, Business, Workshop -> Unstop Events or Luma
+  if (catLower.includes('tech') || catLower.includes('meetup') || catLower.includes('business') || catLower.includes('startup') || catLower.includes('workshop')) {
+    return 'https://unstop.com/events';
   }
 
-  return `https://unstop.com/search?q=${encodeURIComponent(titleClean)}`;
+  return 'https://unstop.com/events';
 }
 
 const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
