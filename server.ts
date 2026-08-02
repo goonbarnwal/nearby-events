@@ -59,20 +59,40 @@ const EventSchema = new mongoose.Schema(
 function fixRegistrationUrl(url?: string, title?: string, category?: string, city?: string): string {
   const cleanUrl = url ? url.trim() : '';
   const titleClean = title || 'event';
-  const cityClean = (city || 'India').trim().toLowerCase();
-  const citySlug = cityClean.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const cityClean = (city || 'pune').trim().toLowerCase();
+  let citySlug = cityClean.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  
+  if (!citySlug || citySlug === 'india') {
+    citySlug = 'pune';
+  } else if (citySlug === 'bangalore') {
+    citySlug = 'bengaluru';
+  } else if (citySlug.includes('delhi') || citySlug.includes('noida') || citySlug.includes('gurgaon')) {
+    citySlug = 'ncr';
+  }
 
-  // Check if it's a real user-submitted custom URL (e.g., Google Form, Typeform, Luma, Unstop, Devfolio)
+  // Check if it's a known real active custom link (e.g. Google Forms, Townscript, Meetup, Luma, Official College sites)
   if (cleanUrl && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
     const isFakeOrDead =
       cleanUrl.includes('mumbaitechsummit') ||
       cleanUrl.includes('example.com') ||
-      cleanUrl === 'https://near-event.app' ||
+      cleanUrl.includes('near-event.app') ||
       cleanUrl.includes('gen-') ||
       cleanUrl.includes('patna-ai-innovation-summit') ||
       cleanUrl.includes('hack4patna') ||
+      cleanUrl.includes('hack4kolkata') ||
+      cleanUrl.includes('hackbriven.com') ||
+      cleanUrl.includes('brainallianz.org') ||
+      cleanUrl.includes('innovate4impact.vercel.app') ||
       cleanUrl.includes('/search?q=') ||
-      cleanUrl.includes('google.com/search');
+      cleanUrl.includes('google.com/search') ||
+      cleanUrl.includes('ET003') ||
+      cleanUrl.includes('ET00') ||
+      /bookmyshow\.com\/events\//i.test(cleanUrl) ||
+      /unstop\.com\/events\/[a-z0-9-]+$/i.test(cleanUrl) ||
+      /unstop\.com\/hackathons\/[a-z0-9-]+$/i.test(cleanUrl) ||
+      /unstop\.com\/o\/[a-z0-9-]+$/i.test(cleanUrl) ||
+      /devfolio\.co\/hackathons\/[a-z0-9-]+$/i.test(cleanUrl) ||
+      /insider\.in\/[a-z0-9-]+\/event/i.test(cleanUrl);
 
     if (!isFakeOrDead) {
       return cleanUrl;
@@ -83,36 +103,41 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
   const catLower = (category || '').toLowerCase();
   const titleLower = titleClean.toLowerCase();
 
-  // Hackathons -> Unstop or Devfolio Hackathons Portals
+  // 1. Hackathons & Coding Competitions
   if (catLower.includes('hackathon') || titleLower.includes('hackathon') || titleLower.includes('coding') || titleLower.includes('code')) {
-    if (titleLower.includes('devfolio') || titleLower.includes('ju') || titleLower.includes('jaipur')) {
+    if (titleLower.includes('devfolio')) {
       return 'https://devfolio.co/hackathons';
     }
     return 'https://unstop.com/hackathons';
   }
 
-  // Music, Concerts, Comedy, Shows -> BookMyShow City Explore Portal
+  // 2. Music, Concerts, Comedy, Shows
   if (catLower.includes('music') || catLower.includes('concert') || catLower.includes('comedy') || catLower.includes('standup') || catLower.includes('show')) {
-    if (citySlug) {
-      return `https://in.bookmyshow.com/explore/events-${citySlug}`;
+    if (catLower.includes('comedy') || titleLower.includes('comedy')) {
+      return `https://in.bookmyshow.com/explore/comedy-shows-${citySlug}`;
     }
-    return 'https://in.bookmyshow.com/explore/events';
+    if (catLower.includes('music') || catLower.includes('concert') || titleLower.includes('symphony') || titleLower.includes('acoustic')) {
+      return `https://in.bookmyshow.com/explore/music-shows-${citySlug}`;
+    }
+    return `https://in.bookmyshow.com/explore/events-${citySlug}`;
   }
 
-  // Food, Festivals, Culinary -> Paytm Insider
+  // 3. Sports & Fitness
+  if (catLower.includes('sports') || catLower.includes('cricket') || catLower.includes('fitness') || catLower.includes('marathon')) {
+    return `https://in.bookmyshow.com/explore/sports-${citySlug}`;
+  }
+
+  // 4. Food, Festivals, Culinary
   if (catLower.includes('food') || catLower.includes('festival') || catLower.includes('culinary')) {
-    if (citySlug) {
-      return `https://insider.in/all-events-in-${citySlug}`;
-    }
-    return 'https://insider.in/';
+    return `https://insider.in/all-events-in-${citySlug}`;
   }
 
-  // Tech, Startup, Meetup, Business, Workshop -> Unstop Events or Luma
+  // 5. Tech, Startup, Meetup, Business, Workshop
   if (catLower.includes('tech') || catLower.includes('meetup') || catLower.includes('business') || catLower.includes('startup') || catLower.includes('workshop')) {
     return 'https://unstop.com/events';
   }
 
-  return 'https://unstop.com/events';
+  return `https://in.bookmyshow.com/explore/events-${citySlug}`;
 }
 
 const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
