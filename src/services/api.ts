@@ -203,7 +203,7 @@ export async function createEvent(eventData: Partial<EventItem>): Promise<EventI
 /**
  * JWT Auth: Register User
  */
-export async function registerUser(data: { name: string; email: string; password: string }): Promise<{ token: string; user: User }> {
+export async function registerUser(data: { name: string; email: string; password: string }): Promise<{ token: string; user: User; simulatedOtp?: string }> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -219,7 +219,7 @@ export async function registerUser(data: { name: string; email: string; password
 /**
  * JWT Auth: Login User
  */
-export async function loginUser(data: { email: string; password: string }): Promise<{ token: string; user: User }> {
+export async function loginUser(data: { email: string; password: string; rememberMe?: boolean }): Promise<{ token: string; user: User }> {
   const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -249,13 +249,103 @@ export async function googleAuthUser(data: { credential?: string; name?: string;
 }
 
 /**
+ * GitHub OAuth Authentication Structure
+ */
+export async function githubAuthUser(data: { name?: string; email?: string; githubId?: string }): Promise<{ token: string; user: User }> {
+  const res = await fetch('/api/auth/github', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'GitHub auth failed');
+  }
+  return await res.json();
+}
+
+/**
+ * Apple OAuth Authentication Structure
+ */
+export async function appleAuthUser(data: { name?: string; email?: string; appleId?: string }): Promise<{ token: string; user: User }> {
+  const res = await fetch('/api/auth/apple', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Apple auth failed');
+  }
+  return await res.json();
+}
+
+/**
+ * Refresh Auth Token
+ */
+export async function refreshAuthToken(): Promise<{ token: string; user: User } | null> {
+  try {
+    const token = localStorage.getItem('nearevent_jwt');
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.token) {
+        localStorage.setItem('nearevent_jwt', data.token);
+      }
+      return data;
+    }
+  } catch (err) {
+    console.warn('Refresh token failed:', err);
+  }
+  return null;
+}
+
+/**
+ * Logout User & clear server cookies
+ */
+export async function logoutUser(): Promise<boolean> {
+  try {
+    localStorage.removeItem('nearevent_jwt');
+    const res = await fetch('/api/auth/logout', { method: 'POST' });
+    return res.ok;
+  } catch (err) {
+    console.warn('Logout error:', err);
+    return false;
+  }
+}
+
+/**
+ * Verify User Email with OTP
+ */
+export async function verifyEmail(email: string, otp: string): Promise<{ message: string; user?: User }> {
+  const res = await fetch('/api/auth/verify-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Email verification failed');
+  }
+  return await res.json();
+}
+
+/**
  * JWT Auth: Verify Token and fetch current user
  */
-export async function getCurrentUser(token: string): Promise<User | null> {
+export async function getCurrentUser(token?: string): Promise<User | null> {
   try {
-    const res = await fetch('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const authToken = token || localStorage.getItem('nearevent_jwt');
+    const headers: Record<string, string> = {};
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+    const res = await fetch('/api/auth/me', { headers });
     if (res.ok) {
       const data = await res.json();
       return data.user;

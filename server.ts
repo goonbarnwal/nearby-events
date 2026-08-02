@@ -312,8 +312,11 @@ async function startServer() {
   }
 
   // ==========================================
-  // AUTHENTICATION API ROUTES (JWT + GOOGLE OAUTH)
+  // AUTHENTICATION API ROUTES (JWT + GOOGLE/GITHUB/APPLE OAUTH)
   // ==========================================
+
+  // Store for verification OTP codes: email -> { code, expiresAt }
+  const verificationOtpStore = new Map<string, { code: string; expiresAt: number }>();
 
   // Register Endpoint
   app.post('/api/auth/register', authLimiter, async (req, res) => {
@@ -325,6 +328,15 @@ async function startServer() {
 
       const cleanEmail = email.trim().toLowerCase();
       const cleanName = name.trim();
+
+      if (!cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+        return res.status(400).json({ error: 'Please enter a valid email address' });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
 
       let userObj: any;
@@ -338,6 +350,8 @@ async function startServer() {
           email: cleanEmail,
           password: hashedPassword,
           role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
+          isEmailVerified: false,
+          provider: 'email',
         });
         userObj = {
           id: newUser._id.toString(),
@@ -346,6 +360,8 @@ async function startServer() {
           role: newUser.role,
           bookmarkedEventIds: [],
           registeredEventIds: [],
+          isEmailVerified: false,
+          provider: 'email',
         };
       } else {
         const existing = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
@@ -360,9 +376,18 @@ async function startServer() {
           role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
           bookmarkedEventIds: [],
           registeredEventIds: [],
+          isEmailVerified: false,
+          provider: 'email',
         };
         usersMemoryDB.push(userObj);
       }
+
+      // Generate a 6-digit email verification code
+      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+      verificationOtpStore.set(cleanEmail, {
+        code: verifyCode,
+        expiresAt: Date.now() + 15 * 60 * 1000, // 15 mins
+      });
 
       const token = jwt.sign(
         { userId: userObj.id, email: userObj.email, name: userObj.name, role: userObj.role },
@@ -378,7 +403,7 @@ async function startServer() {
       );
 
       const { password: _, ...userWithoutPassword } = userObj;
-      res.status(201).json({ token, user: userWithoutPassword });
+      res.status(201).json({ token, user: userWithoutPassword, simulatedOtp: verifyCode });
     } catch (err) {
       console.error('Registration error:', err);
       res.status(500).json({ error: 'Registration failed' });
@@ -388,7 +413,7 @@ async function startServer() {
   // Login Endpoint
   app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { email, password, rememberMe } = req.body;
       if (!email || !password) {
         return res.status(400).json({ error: 'Email and password are required' });
       }
@@ -412,6 +437,8 @@ async function startServer() {
           role: userObj.role,
           bookmarkedEventIds: userObj.bookmarkedEventIds || [],
           registeredEventIds: userObj.registeredEventIds || [],
+          isEmailVerified: userObj.isEmailVerified ?? true,
+          provider: userObj.provider || 'email',
         };
       } else {
         userObj = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
@@ -424,15 +451,16 @@ async function startServer() {
         }
       }
 
+      const days = rememberMe ? 30 : 7;
       const token = jwt.sign(
         { userId: userObj.id, email: userObj.email, name: userObj.name, role: userObj.role },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: `${days}d` }
       );
 
       res.setHeader(
         'Set-Cookie',
-        `nearevent_jwt=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${
+        `nearevent_jwt=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${days * 24 * 60 * 60}${
           process.env.NODE_ENV === 'production' ? '; Secure' : ''
         }`
       );
@@ -461,6 +489,8 @@ async function startServer() {
             name: cleanName,
             email: cleanEmail,
             role: assignedRole,
+            isEmailVerified: true,
+            provider: 'google',
           });
         } else {
           let updated = false;
@@ -481,6 +511,8 @@ async function startServer() {
           role: user.role,
           bookmarkedEventIds: user.bookmarkedEventIds || [],
           registeredEventIds: user.registeredEventIds || [],
+          isEmailVerified: true,
+          provider: 'google',
         };
       } else {
         userObj = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
@@ -492,6 +524,8 @@ async function startServer() {
             role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
             bookmarkedEventIds: [],
             registeredEventIds: [],
+            isEmailVerified: true,
+            provider: 'google',
           };
           usersMemoryDB.push(userObj);
         } else {
@@ -501,13 +535,21 @@ async function startServer() {
           if (isAdminEmail(cleanEmail)) {
             userObj.role = 'admin';
           }
+          userObj.isEmailVerified = true;
         }
       }
 
       const token = jwt.sign(
         { userId: userObj.id, email: userObj.email, name: userObj.name, role: userObj.role },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: '30d' }
+      );
+
+      res.setHeader(
+        'Set-Cookie',
+        `nearevent_jwt=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${
+          process.env.NODE_ENV === 'production' ? '; Secure' : ''
+        }`
       );
 
       res.json({ token, user: userObj });
@@ -517,14 +559,247 @@ async function startServer() {
     }
   });
 
+  // GitHub OAuth Structure Endpoint
+  app.post('/api/auth/github', async (req, res) => {
+    try {
+      const { name: ghName, email: ghEmail } = req.body;
+      const cleanEmail = (ghEmail || 'developer@github.com').trim().toLowerCase();
+      const cleanName = (ghName || 'GitHub Developer').trim();
+
+      let userObj: any;
+      if (isMongoConnected) {
+        let user: any = await UserModel.findOne({ email: cleanEmail } as any);
+        const assignedRole = isAdminEmail(cleanEmail) ? 'admin' : 'user';
+        if (!user) {
+          user = await UserModel.create({
+            name: cleanName,
+            email: cleanEmail,
+            role: assignedRole,
+            isEmailVerified: true,
+            provider: 'github',
+          });
+        }
+        userObj = {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          bookmarkedEventIds: user.bookmarkedEventIds || [],
+          registeredEventIds: user.registeredEventIds || [],
+          isEmailVerified: true,
+          provider: 'github',
+        };
+      } else {
+        userObj = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
+        if (!userObj) {
+          userObj = {
+            id: `github-${Date.now()}`,
+            name: cleanName,
+            email: cleanEmail,
+            role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
+            bookmarkedEventIds: [],
+            registeredEventIds: [],
+            isEmailVerified: true,
+            provider: 'github',
+          };
+          usersMemoryDB.push(userObj);
+        }
+      }
+
+      const token = jwt.sign(
+        { userId: userObj.id, email: userObj.email, name: userObj.name, role: userObj.role },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      res.setHeader(
+        'Set-Cookie',
+        `nearevent_jwt=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${
+          process.env.NODE_ENV === 'production' ? '; Secure' : ''
+        }`
+      );
+
+      res.json({ token, user: userObj });
+    } catch (err) {
+      res.status(500).json({ error: 'GitHub authentication failed' });
+    }
+  });
+
+  // Apple OAuth Structure Endpoint
+  app.post('/api/auth/apple', async (req, res) => {
+    try {
+      const { name: appleName, email: appleEmail } = req.body;
+      const cleanEmail = (appleEmail || 'user@icloud.com').trim().toLowerCase();
+      const cleanName = (appleName || 'Apple User').trim();
+
+      let userObj: any;
+      if (isMongoConnected) {
+        let user: any = await UserModel.findOne({ email: cleanEmail } as any);
+        const assignedRole = isAdminEmail(cleanEmail) ? 'admin' : 'user';
+        if (!user) {
+          user = await UserModel.create({
+            name: cleanName,
+            email: cleanEmail,
+            role: assignedRole,
+            isEmailVerified: true,
+            provider: 'apple',
+          });
+        }
+        userObj = {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          bookmarkedEventIds: user.bookmarkedEventIds || [],
+          registeredEventIds: user.registeredEventIds || [],
+          isEmailVerified: true,
+          provider: 'apple',
+        };
+      } else {
+        userObj = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
+        if (!userObj) {
+          userObj = {
+            id: `apple-${Date.now()}`,
+            name: cleanName,
+            email: cleanEmail,
+            role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
+            bookmarkedEventIds: [],
+            registeredEventIds: [],
+            isEmailVerified: true,
+            provider: 'apple',
+          };
+          usersMemoryDB.push(userObj);
+        }
+      }
+
+      const token = jwt.sign(
+        { userId: userObj.id, email: userObj.email, name: userObj.name, role: userObj.role },
+        JWT_SECRET,
+        { expiresIn: '30d' }
+      );
+
+      res.setHeader(
+        'Set-Cookie',
+        `nearevent_jwt=${token}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}${
+          process.env.NODE_ENV === 'production' ? '; Secure' : ''
+        }`
+      );
+
+      res.json({ token, user: userObj });
+    } catch (err) {
+      res.status(500).json({ error: 'Apple authentication failed' });
+    }
+  });
+
+  // Refresh Token Endpoint
+  app.post('/api/auth/refresh', async (req, res) => {
+    let token = req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
+      ? req.headers.authorization.split(' ')[1]
+      : null;
+
+    if (!token && req.headers.cookie) {
+      const match = req.headers.cookie.match(/nearevent_jwt=([^;]+)/);
+      if (match) token = match[1];
+    }
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
+      const newToken = jwt.sign(
+        { userId: decoded.userId, email: decoded.email, name: decoded.name, role: decoded.role },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+
+      res.setHeader(
+        'Set-Cookie',
+        `nearevent_jwt=${newToken}; HttpOnly; Path=/; SameSite=Lax; Max-Age=${7 * 24 * 60 * 60}${
+          process.env.NODE_ENV === 'production' ? '; Secure' : ''
+        }`
+      );
+
+      res.json({ token: newToken });
+    } catch (err) {
+      res.status(401).json({ error: 'Invalid or expired token for refresh' });
+    }
+  });
+
+  // Logout Endpoint
+  app.post('/api/auth/logout', (req, res) => {
+    res.setHeader(
+      'Set-Cookie',
+      `nearevent_jwt=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0${
+        process.env.NODE_ENV === 'production' ? '; Secure' : ''
+      }`
+    );
+    res.json({ message: 'Logged out successfully' });
+  });
+
+  // Verify Email Endpoint
+  app.post('/api/auth/verify-email', async (req, res) => {
+    try {
+      const { email, otp } = req.body;
+      if (!email || !otp) {
+        return res.status(400).json({ error: 'Email and verification code are required' });
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+      const stored = verificationOtpStore.get(cleanEmail);
+
+      if (!stored || Date.now() > stored.expiresAt) {
+        return res.status(400).json({ error: 'Verification code has expired. Please request a new code.' });
+      }
+
+      if (stored.code !== otp.trim()) {
+        return res.status(400).json({ error: 'Invalid verification code. Please check your code.' });
+      }
+
+      let updatedUser: any = null;
+      if (isMongoConnected) {
+        await UserModel.updateOne({ email: cleanEmail } as any, { isEmailVerified: true });
+        const u: any = await UserModel.findOne({ email: cleanEmail } as any);
+        if (u) {
+          updatedUser = {
+            id: u._id.toString(),
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            isEmailVerified: true,
+          };
+        }
+      } else {
+        const u = usersMemoryDB.find((x) => x.email.toLowerCase() === cleanEmail);
+        if (u) {
+          u.isEmailVerified = true;
+          updatedUser = { ...u };
+        }
+      }
+
+      verificationOtpStore.delete(cleanEmail);
+      res.json({ message: 'Email verified successfully!', user: updatedUser });
+    } catch (err) {
+      res.status(500).json({ error: 'Email verification failed' });
+    }
+  });
+
   // Verify Token Endpoint
   app.get('/api/auth/me', async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let token = req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
+      ? req.headers.authorization.split(' ')[1]
+      : null;
+
+    if (!token && req.headers.cookie) {
+      const match = req.headers.cookie.match(/nearevent_jwt=([^;]+)/);
+      if (match) token = match[1];
+    }
+
+    if (!token) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const token = authHeader.split(' ')[1];
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
       let userObj: any = null;

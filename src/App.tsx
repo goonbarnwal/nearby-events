@@ -14,7 +14,7 @@ import { AiRecommendationsModal } from './components/AiRecommendationsModal';
 import { Footer } from './components/Footer';
 import { EventItem, FilterState, UserLocation, User } from './types';
 import { INITIAL_EVENTS } from './data/mockEvents';
-import { fetchEvents, reverseGeocode, searchLocation, createEvent, getCurrentUser, fetchMyCreatedEvents, updateEvent, deleteEvent } from './services/api';
+import { fetchEvents, reverseGeocode, searchLocation, createEvent, getCurrentUser, fetchMyCreatedEvents, updateEvent, deleteEvent, logoutUser } from './services/api';
 import { ChevronDown, SlidersHorizontal, MapPin } from 'lucide-react';
 
 export default function App() {
@@ -346,8 +346,8 @@ export default function App() {
         onOpenAuth={() => setAuthModalOpen(true)}
         onOpenAdmin={() => setAdminModalOpen(true)}
         user={user}
-        onLogout={() => {
-          localStorage.removeItem('nearevent_jwt');
+        onLogout={async () => {
+          await logoutUser();
           setUser(null);
         }}
         onTriggerSearchFocus={handleTriggerSearchFocus}

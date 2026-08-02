@@ -62,6 +62,8 @@ export interface User {
   role: 'user' | 'admin';
   bookmarkedEventIds: string[];
   registeredEventIds: string[];
+  isEmailVerified?: boolean;
+  provider?: 'email' | 'google' | 'github' | 'apple';
 }
 
 export interface AIRecommendationResponse {
