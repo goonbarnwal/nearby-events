@@ -176,21 +176,19 @@ export const EventCard: React.FC<EventCardProps> = ({
             </button>
           )}
 
-          {/* Direct Registration Link Button */}
-          {event.registrationUrl && (
-            <a
-              id={`btn-register-link-${event.id}`}
-              href={event.registrationUrl.startsWith('http') ? event.registrationUrl : `https://${event.registrationUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="px-3 py-1.5 text-xs font-bold text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-600 rounded-xl transition-colors flex items-center gap-1 shadow-2xs"
-              title="Open official registration link"
-            >
-              <span>Register</span>
-              <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
-            </a>
-          )}
+          {/* Register / View Pass Button */}
+          <button
+            id={`btn-register-link-${event.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewDetails(event);
+            }}
+            className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
+            title="Register for event & get instant digital pass"
+          >
+            <span>Register</span>
+            <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
+          </button>
 
           {/* Bookmark Icon Button */}
           <button
