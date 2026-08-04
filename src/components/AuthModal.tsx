@@ -319,6 +319,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     }
   };
 
+  // Handle Facebook Login
+  const handleFacebookLogin = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await googleAuthUser({
+        name: name.trim() || 'Facebook User',
+        email: email.trim() || 'user.fb@facebook.com',
+      });
+      if (res.token) localStorage.setItem('nearevent_jwt', res.token);
+      saveUserToLocal({ name: res.user.name, email: res.user.email });
+
+      setToast({
+        type: 'success',
+        message: 'Facebook Sign-In Successful',
+        subText: `Connected via Facebook`,
+      });
+
+      setTimeout(() => {
+        onLoginSuccess(res.user);
+      }, 700);
+    } catch (err: any) {
+      setError(err.message || 'Facebook authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Handle Forgot Password OTP Request
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -433,46 +461,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto backdrop-blur-md bg-slate-950/65 animate-in fade-in duration-200 ${isDarkMode ? 'dark' : ''}`}>
       <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all text-slate-800 dark:text-slate-100 my-auto">
         
-        {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100 dark:border-slate-800/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-lg shadow-md shadow-blue-500/20">
-              N
-            </div>
-            <div>
-              <h3 className="text-lg font-black tracking-tight text-slate-900 dark:text-white leading-tight">
-                {activeTab === 'signin' ? 'Log in to NearEvent' : activeTab === 'signup' ? 'Sign up for NearEvent' : 'NearEvent Account'}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                {activeTab === 'signin' ? 'Welcome back! Discover tech & local events' : activeTab === 'signup' ? 'Join the community & save your favorite events' : 'Reset password or verify email'}
-              </p>
-            </div>
-          </div>
+        {/* Header Bar (Meetup Style) */}
+        <div className="relative px-6 pt-6 pb-2 text-center">
+          {/* Dark / Light Mode Toggle */}
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            className="absolute left-6 top-6 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+          </button>
 
-          <div className="flex items-center gap-1.5">
-            {/* Dark / Light Mode Toggle */}
-            <button
-              type="button"
-              onClick={toggleDarkMode}
-              className="p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            >
-              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-            </button>
+          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            {activeTab === 'signin' ? 'Log in' : activeTab === 'signup' ? 'Sign up' : activeTab === 'forgot-password' ? 'Reset Password' : 'Verify Email'}
+          </h2>
 
-            {/* Close Button */}
-            <button
-              onClick={onClose}
-              className="p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-4 h-4 stroke-[2.5]" />
-            </button>
-          </div>
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="absolute right-6 top-6 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5 stroke-[2]" />
+          </button>
         </div>
 
         {/* Custom Notice Banner for unauthenticated actions */}
         {initialMessage && !toast && (
-          <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
+          <div className="mx-6 mt-2 p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
             <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <div className="font-medium">{initialMessage}</div>
           </div>
@@ -480,7 +496,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
         {/* Dynamic Toast Notification */}
         {toast && (
-          <div className={`mx-6 mt-4 p-3.5 rounded-2xl border text-xs flex items-start gap-3 animate-in slide-in-from-top-2 duration-200 ${
+          <div className={`mx-6 mt-2 p-3 rounded-2xl border text-xs flex items-start gap-3 animate-in slide-in-from-top-2 duration-200 ${
             toast.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
               : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200'
@@ -502,7 +518,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
         {/* Global Error Banner */}
         {error && !toast && (
-          <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in">
+          <div className="mx-6 mt-2 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in">
             <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
             <div className="flex-1 font-medium">{error}</div>
             <button onClick={() => setError(null)} className="opacity-60 hover:opacity-100">
@@ -512,41 +528,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         )}
 
         {/* Modal Main Content Container */}
-        <div className="p-6 pt-5">
-
-          {/* Top Pill Switcher (Meetup style) */}
-          {activeTab !== 'forgot-password' && activeTab !== 'verify-email' && (
-            <div className="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-full mb-6 border border-slate-200/60 dark:border-slate-700/60">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('signin');
-                  setError(null);
-                }}
-                className={`flex-1 py-2 text-xs font-bold rounded-full transition-all ${
-                  activeTab === 'signin'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                Log In
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('signup');
-                  setError(null);
-                }}
-                className={`flex-1 py-2 text-xs font-bold rounded-full transition-all ${
-                  activeTab === 'signup'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
-              >
-                Sign Up
-              </button>
-            </div>
-          )}
+        <div className="p-6 pt-3">
 
           {/* GOOGLE ACCOUNT SELECTOR PICKER MODAL */}
           {showGooglePicker ? (
@@ -555,7 +537,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                 <button
                   type="button"
                   onClick={() => setShowGooglePicker(false)}
-                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-semibold"
+                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-semibold cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" /> Back
                 </button>
@@ -580,7 +562,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                         localStorage.removeItem('nearevent_saved_user');
                         setError(null);
                       }}
-                      className="text-[10px] font-bold text-rose-500 hover:underline"
+                      className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
                     >
                       Clear
                     </button>
@@ -588,7 +570,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                   <button
                     type="button"
                     onClick={() => handleExecuteGoogleLogin(savedUser.name, savedUser.email)}
-                    className="w-full p-3 bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/30 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800/50 rounded-2xl flex items-center justify-between transition-all group"
+                    className="w-full p-3 bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/30 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800/50 rounded-2xl flex items-center justify-between transition-all group cursor-pointer"
                   >
                     <div className="flex items-center gap-3 text-left">
                       <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-sm shadow-sm">
@@ -639,7 +621,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue with Google'}
                   </button>
@@ -647,52 +629,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
               </div>
             </div>
           ) : activeTab === 'signin' ? (
-            /* TAB 1: LOG IN */
-            <div className="space-y-4 animate-in fade-in duration-200">
+            /* TAB 1: LOG IN (Exact Meetup Replica) */
+            <div className="space-y-3.5 animate-in fade-in duration-200 pt-2">
               
-              {/* Primary Google Auth Button (Meetup style pill) */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (email.trim() && email.includes('@')) {
-                    handleExecuteGoogleLogin(name.trim() || email.split('@')[0], email.trim());
-                  } else {
-                    setCustomGoogleEmail('');
-                    setCustomGoogleName('');
-                    setShowGooglePicker(true);
-                  }
-                }}
-                disabled={loading}
-                className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center gap-3 disabled:opacity-50 group hover:border-slate-400 dark:hover:border-slate-600 cursor-pointer"
-              >
-                <svg className="w-4 h-4 shrink-0 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-                <span>Continue with Google</span>
-              </button>
-
-              {/* Secondary Social Login Buttons */}
-              <div className="grid grid-cols-2 gap-2.5">
+              {/* Top 3 Social Pill Buttons (Google, Apple, Facebook) */}
+              <div className="space-y-2.5">
                 <button
                   type="button"
-                  onClick={handleGithubLogin}
+                  onClick={() => {
+                    if (email.trim() && email.includes('@')) {
+                      handleExecuteGoogleLogin(name.trim() || email.split('@')[0], email.trim());
+                    } else {
+                      setCustomGoogleEmail('');
+                      setCustomGoogleName('');
+                      setShowGooglePicker(true);
+                    }
+                  }}
                   disabled={loading}
-                  className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
                 >
-                  <Github className="w-3.5 h-3.5" />
-                  Continue with GitHub
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>Log in with Google</span>
                 </button>
+
                 <button
                   type="button"
                   onClick={handleAppleLogin}
                   disabled={loading}
-                  className="py-2.5 px-3 bg-black hover:bg-slate-900 text-white text-[11px] font-bold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
                 >
-                  <span className="font-sans text-sm leading-none font-bold"></span>
-                  Continue with Apple
+                  <svg className="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.32c.67-.82 1.13-1.97.99-3.12-1.02.04-2.22.68-2.93 1.51-.62.72-1.17 1.88-1.01 3.01 1.14.09 2.28-.58 2.95-1.4z"/>
+                  </svg>
+                  <span>Log in with Apple</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleFacebookLogin}
+                  disabled={loading}
+                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
+                >
+                  <svg className="w-4 h-4 shrink-0 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                  <span>Log in with Facebook</span>
                 </button>
               </div>
 
@@ -714,7 +700,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                       setEmail(savedUser.email);
                       setError(null);
                     }}
-                    className="text-xs font-extrabold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                    className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                   >
                     Use
                   </button>
@@ -726,74 +712,57 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
                 </div>
-                <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                  <span className="bg-white dark:bg-slate-900 px-3">or log in with email</span>
+                <div className="relative flex justify-center text-xs text-slate-400 font-medium">
+                  <span className="bg-white dark:bg-slate-900 px-4">or</span>
                 </div>
               </div>
 
               {/* Credentials Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Email Address
+                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
+                    Email
                   </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                    />
-                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                  />
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                      Password
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('forgot-password');
-                        setError(null);
-                      }}
-                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-bold cursor-pointer"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
+                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
+                    Password
+                  </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-10 pr-10 py-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-1">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600 dark:text-slate-400 font-medium select-none">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded-md text-blue-600 focus:ring-blue-500 border-slate-300"
-                    />
+                <div className="flex items-center gap-2.5 pt-1">
+                  <input
+                    type="checkbox"
+                    id="rememberMeCheckbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900 cursor-pointer"
+                  />
+                  <label htmlFor="rememberMeCheckbox" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none">
                     Keep me logged in
                   </label>
                 </div>
@@ -801,24 +770,250 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-full shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] cursor-pointer"
+                  className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold text-sm rounded-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] cursor-pointer border border-slate-200 dark:border-slate-700 shadow-2xs"
                 >
                   {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log in'}
                 </button>
               </form>
 
               {/* Bottom Toggle Footer */}
-              <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-2">
-                Not a member yet?{' '}
+              <div className="text-center space-y-2 pt-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveTab('signup');
+                    setActiveTab('forgot-password');
                     setError(null);
                   }}
-                  className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  className="block w-full text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                 >
-                  Sign up
+                  Forgot password?
+                </button>
+
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  Issues with login?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToast({
+                        type: 'info',
+                        message: 'Need help logging in?',
+                        subText: 'Use "Forgot password?" above or contact support@nearevent.com',
+                      });
+                    }}
+                    className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    Get help
+                  </button>
+                </p>
+
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium pt-1">
+                  Do not have an account yet?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('signup');
+                      setError(null);
+                    }}
+                    className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    Sign up
+                  </button>
+                </p>
+              </div>
+            </div>
+          ) : activeTab === 'signup' ? (
+            /* TAB 2: SIGN UP (Exact Meetup Replica) */
+            <div className="space-y-3.5 animate-in fade-in duration-200 pt-2">
+              
+              {/* Top 3 Social Pill Buttons (Google, Apple, Facebook) */}
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowGooglePicker(true)}
+                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>Continue with Google</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAppleLogin}
+                  disabled={loading}
+                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
+                >
+                  <svg className="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.32c.67-.82 1.13-1.97.99-3.12-1.02.04-2.22.68-2.93 1.51-.62.72-1.17 1.88-1.01 3.01 1.14.09 2.28-.58 2.95-1.4z"/>
+                  </svg>
+                  <span>Continue with Apple</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleFacebookLogin}
+                  disabled={loading}
+                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
+                >
+                  <svg className="w-4 h-4 shrink-0 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                  </svg>
+                  <span>Continue with Facebook</span>
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+                </div>
+                <div className="relative flex justify-center text-xs text-slate-400 font-medium">
+                  <span className="bg-white dark:bg-slate-900 px-4">or</span>
+                </div>
+              </div>
+
+              <p className="text-center text-sm font-bold text-slate-800 dark:text-slate-100">
+                Sign up with email
+              </p>
+
+              <form onSubmit={handleSignUpSubmit} className="space-y-3.5 pt-1">
+                <div>
+                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Rahul Sharma"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-bold text-slate-800 dark:text-slate-100">
+                      Password
+                    </label>
+                    {password && (
+                      <span className={`text-xs font-bold ${pwdStrength.text}`}>
+                        {pwdStrength.label}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {/* Password Strength Bar */}
+                  {password && (
+                    <div className="mt-1.5 space-y-1">
+                      <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex gap-0.5">
+                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 1 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
+                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 2 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
+                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 3 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
+                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 4 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat your password"
+                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {confirmPassword && password !== confirmPassword && (
+                    <p className="text-[10px] text-rose-500 font-bold mt-1">Passwords do not match</p>
+                  )}
+                </div>
+
+                <div className="pt-1">
+                  <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400 leading-tight select-none">
+                    <input
+                      type="checkbox"
+                      checked={acceptTerms}
+                      onChange={(e) => setAcceptTerms(e.target.checked)}
+                      className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900 mt-0.5 cursor-pointer"
+                    />
+                    <span>
+                      I agree to the{' '}
+                      <span className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Terms of Service</span> and{' '}
+                      <span className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Privacy Policy</span>.
+                    </span>
+                  </label>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !acceptTerms}
+                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] cursor-pointer shadow-md shadow-blue-500/20"
+                >
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign up'}
+                </button>
+              </form>
+
+              {/* Bottom Toggle Footer */}
+              <p className="text-center text-xs text-slate-600 dark:text-slate-400 font-medium pt-3">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('signin');
+                    setError(null);
+                  }}
+                  className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                >
+                  Log in
                 </button>
               </p>
             </div>

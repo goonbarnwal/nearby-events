@@ -35,7 +35,7 @@ export default function App() {
   // Filters State
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
-    locationQuery: '',
+    locationQuery: 'Pune',
     category: 'All',
     dateFilter: 'all',
     radiusKm: 100,
@@ -564,15 +564,22 @@ export default function App() {
           onToggleBookmark={(id) => handleToggleBookmark(id)}
           isRegistered={registeredIds.includes(selectedEvent.id)}
           onRegister={handleRegister}
+          user={user}
+          onOpenAuth={() => handleOpenAuthWithMessage('Please log in or create an account to register for events.')}
         />
       )}
 
       {authModalOpen && (
         <AuthModal
-          onClose={() => setAuthModalOpen(false)}
+          onClose={() => {
+            setAuthModalOpen(false);
+            setAuthModalMessage(undefined);
+          }}
+          initialMessage={authModalMessage}
           onLoginSuccess={(loggedInUser) => {
             setUser(loggedInUser);
             setAuthModalOpen(false);
+            setAuthModalMessage(undefined);
           }}
         />
       )}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Search, Calendar as CalendarIcon, ChevronDown, LocateFixed, Loader2 } from 'lucide-react';
+import { MapPin, Search, Calendar as CalendarIcon, ChevronDown, LocateFixed, Loader2, X } from 'lucide-react';
 import { FilterState, UserLocation } from '../types';
 
 interface HeroSearchProps {
@@ -60,15 +60,29 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
               id="input-location"
               type="text"
               aria-label="Location"
-              value={filters.locationQuery || (location.isDetected ? location.city : 'Use my location')}
+              value={filters.locationQuery}
               onChange={(e) => setFilters((prev) => ({ ...prev, locationQuery: e.target.value }))}
-              placeholder="Use my location"
+              onFocus={(e) => e.target.select()}
+              placeholder="Search city or location..."
               className="w-full bg-transparent text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none"
             />
+            {filters.locationQuery && (
+              <button
+                type="button"
+                onClick={() => setFilters((prev) => ({ ...prev, locationQuery: '' }))}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg shrink-0 mr-1 transition-colors"
+                title="Clear location"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               id="btn-detect-location"
               type="button"
-              onClick={onRequestLocation}
+              onClick={() => {
+                onRequestLocation();
+                setFilters((prev) => ({ ...prev, locationQuery: location.city || 'Pune' }));
+              }}
               disabled={isLocating}
               aria-label="Detect my current location"
               className="p-1 text-blue-600 hover:text-blue-800 rounded-xl transition-colors shrink-0"
