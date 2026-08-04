@@ -20,7 +20,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import L from 'leaflet';
-import { EventItem } from '../types';
+import { EventItem, User } from '../types';
 import { formatDateParts } from '../utils/distance';
 import { generateAiSummary } from '../services/api';
 
@@ -31,6 +31,8 @@ interface EventDetailsModalProps {
   onToggleBookmark: (eventId: string) => void;
   isRegistered: boolean;
   onRegister: (eventId: string) => void;
+  user?: User | null;
+  onOpenAuth?: () => void;
 }
 
 export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
@@ -40,6 +42,8 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
   onToggleBookmark,
   isRegistered,
   onRegister,
+  user,
+  onOpenAuth,
 }) => {
   const [summary, setSummary] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
@@ -110,7 +114,12 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleRegisterClick = () => {
+  const handleRegisterClick = (e: React.MouseEvent) => {
+    if (!user) {
+      e.preventDefault();
+      if (onOpenAuth) onOpenAuth();
+      return;
+    }
     onRegister(event.id);
   };
 

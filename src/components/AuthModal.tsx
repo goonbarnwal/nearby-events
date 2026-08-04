@@ -35,11 +35,12 @@ import {
 interface AuthModalProps {
   onClose: () => void;
   onLoginSuccess: (user: UserType) => void;
+  initialMessage?: string;
 }
 
 type AuthTab = 'signin' | 'signup' | 'forgot-password' | 'verify-email';
 
-export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, initialMessage }) => {
   const [activeTab, setActiveTab] = useState<AuthTab>('signin');
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return document.documentElement.classList.contains('dark');
@@ -468,6 +469,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess })
             </button>
           </div>
         </div>
+
+        {/* Custom Notice Banner for unauthenticated actions */}
+        {initialMessage && !toast && (
+          <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
+            <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <div className="font-medium">{initialMessage}</div>
+          </div>
+        )}
 
         {/* Dynamic Toast Notification */}
         {toast && (

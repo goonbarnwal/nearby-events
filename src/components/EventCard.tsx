@@ -1,6 +1,6 @@
 import React from 'react';
 import { Bookmark, Clock, MapPin, ExternalLink, Edit, Trash2 } from 'lucide-react';
-import { EventItem } from '../types';
+import { EventItem, User } from '../types';
 import { formatDateParts } from '../utils/distance';
 
 interface EventCardProps {
@@ -11,6 +11,8 @@ interface EventCardProps {
   onEdit?: (event: EventItem) => void;
   onDelete?: (eventId: string) => void;
   showStatusBadge?: boolean;
+  user?: User | null;
+  onOpenAuth?: () => void;
 }
 
 export const EventCard: React.FC<EventCardProps> = ({
@@ -21,6 +23,8 @@ export const EventCard: React.FC<EventCardProps> = ({
   onEdit,
   onDelete,
   showStatusBadge = false,
+  user,
+  onOpenAuth,
 }) => {
   const { month, day, dayOfWeek } = formatDateParts(event.startDate);
 
@@ -177,33 +181,29 @@ export const EventCard: React.FC<EventCardProps> = ({
           )}
 
           {/* Direct Official Registration Link Button */}
-          {event.registrationUrl ? (
-            <a
-              id={`btn-register-link-${event.id}`}
-              href={event.registrationUrl.startsWith('http') ? event.registrationUrl : `https://${event.registrationUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
-              title="Open official platform registration link"
-            >
-              <span>Register</span>
-              <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
-            </a>
-          ) : (
-            <button
-              id={`btn-register-link-${event.id}`}
-              onClick={(e) => {
-                e.stopPropagation();
+          <button
+            id={`btn-register-link-${event.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!user) {
+                if (onOpenAuth) onOpenAuth();
+                return;
+              }
+              if (event.registrationUrl) {
+                const targetUrl = event.registrationUrl.startsWith('http')
+                  ? event.registrationUrl
+                  : `https://${event.registrationUrl}`;
+                window.open(targetUrl, '_blank', 'noopener,noreferrer');
+              } else {
                 onViewDetails(event);
-              }}
-              className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
-              title="View event details & register"
-            >
-              <span>Register</span>
-              <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
-            </button>
-          )}
+              }
+            }}
+            className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
+            title="Register for event"
+          >
+            <span>Register</span>
+            <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
+          </button>
 
           {/* Bookmark Icon Button */}
           <button

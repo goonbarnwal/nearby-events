@@ -57,9 +57,15 @@ export default function App() {
   // Modals state
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMessage, setAuthModalMessage] = useState<string | undefined>(undefined);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [aiRecsModalOpen, setAiRecsModalOpen] = useState(false);
+
+  const handleOpenAuthWithMessage = (msg?: string) => {
+    setAuthModalMessage(msg);
+    setAuthModalOpen(true);
+  };
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -400,6 +406,8 @@ export default function App() {
                       onViewDetails={(evt) => setSelectedEvent(evt)}
                       isBookmarked={bookmarkedIds.includes(event.id)}
                       onToggleBookmark={handleToggleBookmark}
+                      user={user}
+                      onOpenAuth={() => handleOpenAuthWithMessage('Please log in or create an account to register for events.')}
                     />
                   ))}
 
@@ -468,6 +476,8 @@ export default function App() {
                   onViewDetails={(evt) => setSelectedEvent(evt)}
                   isBookmarked={bookmarkedIds.includes(event.id)}
                   onToggleBookmark={handleToggleBookmark}
+                  user={user}
+                  onOpenAuth={() => handleOpenAuthWithMessage('Please log in or create an account to register for events.')}
                 />
               ))}
             </div>
