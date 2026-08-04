@@ -487,29 +487,58 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto backdrop-blur-md bg-slate-950/65 animate-in fade-in duration-200 ${isDarkMode ? 'dark' : ''}`}>
       <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl border border-slate-200/80 dark:border-slate-800/80 overflow-hidden transition-all text-slate-800 dark:text-slate-100 my-auto">
         
-        {/* Header Bar (Meetup Style) */}
-        <div className="relative px-6 pt-6 pb-2 text-center">
-          {/* Dark / Light Mode Toggle */}
-          <button
-            type="button"
-            onClick={toggleDarkMode}
-            className="absolute left-6 top-6 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-          </button>
-
-          <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-            {activeTab === 'signin' ? 'Log in' : activeTab === 'signup' ? 'Sign up' : activeTab === 'forgot-password' ? 'Reset Password' : 'Verify Email'}
-          </h2>
-
+        {/* Header Bar */}
+        <div className="relative px-6 pt-6 pb-2">
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="absolute right-6 top-6 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            className="absolute right-5 top-5 p-2 rounded-full text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors cursor-pointer"
+            title="Close"
           >
-            <X className="w-5 h-5 stroke-[2]" />
+            <X className="w-5 h-5 stroke-[2.5]" />
           </button>
+
+          {!showGooglePicker && activeTab !== 'forgot-password' && activeTab !== 'verify-email' && (
+            <div className="space-y-4 text-center">
+              {/* Top Pill Tab Switcher */}
+              <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-full w-full max-w-xs mx-auto border border-slate-200/50 dark:border-slate-700/50">
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('signin'); setError(null); }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-full transition-all cursor-pointer ${
+                    activeTab === 'signin'
+                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('signup'); setError(null); }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-full transition-all cursor-pointer ${
+                    activeTab === 'signup'
+                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  Create Account
+                </button>
+              </div>
+
+              {/* Title & Subtitle */}
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  {activeTab === 'signin' ? 'Log In to NearEvent' : 'Create a Free NearEvent Account'}
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
+                  {activeTab === 'signin'
+                    ? 'Access your saved events, tickets, and AI tools.'
+                    : 'Join over 100K+ members discovering local events daily.'}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Custom Notice Banner for unauthenticated actions */}
@@ -556,215 +585,234 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         {/* Modal Main Content Container */}
         <div className="p-6 pt-3">
 
-          {/* GOOGLE ACCOUNT SELECTOR PICKER MODAL */}
+          {/* REALISTIC GOOGLE OAUTH ACCOUNT CHOOSER & PERMISSIONS SCREEN */}
           {showGooglePicker ? (
-            <div className="space-y-4 animate-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+            <div className="space-y-4 animate-in zoom-in-95 duration-200 bg-white dark:bg-slate-900 rounded-2xl p-1">
+              
+              {/* Header: Sign in with Google */}
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                 <button
                   type="button"
-                  onClick={() => setShowGooglePicker(false)}
-                  className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-semibold cursor-pointer"
+                  onClick={() => {
+                    if (googleConsentAccount) {
+                      setGoogleConsentAccount(null);
+                    } else {
+                      setShowGooglePicker(false);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-semibold cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" /> Back
                 </button>
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-200">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
                   <svg className="w-4 h-4" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                   </svg>
-                  Google Sign-In
+                  <span>Sign in with Google</span>
                 </div>
               </div>
 
-              {savedUser && (
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recently Used Account</span>
+              {!googleConsentAccount ? (
+                /* STEP 1: CHOOSE AN ACCOUNT (Screenshot 2) */
+                <div className="space-y-4 pt-1">
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-normal text-slate-800 dark:text-slate-100 tracking-tight">
+                      Choose an account
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      to continue to <span className="font-bold text-blue-600 dark:text-blue-400">nearevent.com</span>
+                    </p>
+                  </div>
+
+                  {/* Account List Items */}
+                  <div className="space-y-2 border-t border-b border-slate-100 dark:border-slate-800/80 py-2">
+                    {[
+                      { name: 'Anurag Bhardwaj', email: 'anuragbhar8111@gmail.com', bg: 'bg-purple-600' },
+                      { name: 'Goonjan Barnwal', email: 'barnwalgoon@gmail.com', bg: 'bg-emerald-600' },
+                      { name: 'Rahul Sharma', email: 'rahul.sharma@gmail.com', bg: 'bg-blue-600' },
+                      ...(savedUser ? [{ name: savedUser.name, email: savedUser.email, bg: 'bg-indigo-600' }] : []),
+                    ].map((acc, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setGoogleConsentAccount({ name: acc.name, email: acc.email })}
+                        className="w-full p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-2xl flex items-center justify-between transition-all group text-left cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-full ${acc.bg} text-white font-extrabold flex items-center justify-center text-sm shadow-xs shrink-0`}>
+                            {acc.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="truncate">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 transition-colors">{acc.name}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{acc.email}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+
+                    {/* Use Another Account */}
+                    {!showAddGoogleAccount ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddGoogleAccount(true)}
+                        className="w-full p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-2xl flex items-center gap-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
+                          <UserIcon className="w-4 h-4" />
+                        </div>
+                        <span>Use another account</span>
+                      </button>
+                    ) : (
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2 border border-slate-200 dark:border-slate-700">
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Enter Google Email:</p>
+                        <input
+                          type="email"
+                          placeholder="your.email@gmail.com"
+                          value={customGoogleEmail}
+                          onChange={(e) => setCustomGoogleEmail(e.target.value)}
+                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (customGoogleEmail.trim() && customGoogleEmail.includes('@')) {
+                              const typedName = customGoogleEmail.split('@')[0];
+                              setGoogleConsentAccount({ name: typedName, email: customGoogleEmail.trim() });
+                            } else {
+                              setError('Please enter a valid Google email.');
+                            }
+                          }}
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* STEP 2: GOOGLE PERMISSION CONSENT SCREEN (Screenshot 3) */
+                <div className="space-y-4 pt-1 animate-in fade-in duration-200">
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-normal text-slate-800 dark:text-slate-100 tracking-tight">
+                      Sign in to nearevent.com
+                    </h3>
+                  </div>
+
+                  {/* Account Dropdown Pill */}
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full text-xs font-medium text-slate-700 dark:text-slate-300">
+                    <div className="w-5 h-5 rounded-full bg-purple-600 text-white font-bold text-[10px] flex items-center justify-center">
+                      {googleConsentAccount.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="truncate max-w-[200px]">{googleConsentAccount.email}</span>
+                  </div>
+
+                  {/* Information access prompt */}
+                  <p className="text-xs sm:text-sm text-slate-700 dark:text-slate-300 font-medium">
+                    Google will allow <span className="font-bold">nearevent.com</span> to access this info about you
+                  </p>
+
+                  <div className="space-y-3 pl-1 py-1">
+                    <div className="flex items-start gap-3">
+                      <UserIcon className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{googleConsentAccount.name}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Name and profile picture</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Mail className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{googleConsentAccount.email}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Email address</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed pt-1 border-t border-slate-100 dark:border-slate-800">
+                    Review nearevent.com's <span className="text-blue-600 dark:text-blue-400 font-medium cursor-pointer">privacy policy</span> and <span className="text-blue-600 dark:text-blue-400 font-medium cursor-pointer">Terms of Service</span> to understand how nearevent.com will process and protect your data.
+                  </p>
+
+                  {/* Consent Action Buttons */}
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                     <button
                       type="button"
-                      onClick={() => {
-                        localStorage.removeItem('nearevent_saved_user');
-                        setError(null);
-                      }}
-                      className="text-[10px] font-bold text-rose-500 hover:underline cursor-pointer"
+                      onClick={() => setGoogleConsentAccount(null)}
+                      className="px-5 py-2.5 text-xs font-bold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-full border border-slate-300 dark:border-slate-700 transition-colors cursor-pointer"
                     >
-                      Clear
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleExecuteGoogleLogin(googleConsentAccount.name, googleConsentAccount.email)}
+                      className="px-6 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-full shadow-md shadow-blue-500/20 transition-all cursor-pointer flex items-center gap-2"
+                    >
+                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue'}
                     </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleExecuteGoogleLogin(savedUser.name, savedUser.email)}
-                    className="w-full p-3 bg-blue-50/80 hover:bg-blue-100/80 dark:bg-blue-950/30 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800/50 rounded-2xl flex items-center justify-between transition-all group cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 text-left">
-                      <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-sm shadow-sm">
-                        {savedUser.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">{savedUser.name}</p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{savedUser.email}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-full shadow-2xs">
-                      Sign In
-                    </span>
-                  </button>
                 </div>
               )}
-
-              <div>
-                <p className="text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-2">Sign in with Google Account:</p>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const cleanEmail = customGoogleEmail.trim();
-                    const cleanName = customGoogleName.trim() || cleanEmail.split('@')[0];
-                    if (!cleanEmail || !cleanEmail.includes('@')) {
-                      setError('Please enter a valid Google email address.');
-                      return;
-                    }
-                    handleExecuteGoogleLogin(cleanName, cleanEmail);
-                  }}
-                  className="space-y-2.5"
-                >
-                  <input
-                    type="text"
-                    placeholder="Full Name (e.g. Alex Sharma)"
-                    value={customGoogleName}
-                    onChange={(e) => setCustomGoogleName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Google Email (e.g. alex@gmail.com)"
-                    value={customGoogleEmail}
-                    onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue with Google'}
-                  </button>
-                </form>
-              </div>
             </div>
           ) : activeTab === 'signin' ? (
-            /* TAB 1: LOG IN (Exact Meetup Replica) */
-            <div className="space-y-3.5 animate-in fade-in duration-200 pt-2">
+            /* TAB 1: LOG IN (Exact DocsAI Style) */
+            <div className="space-y-4 animate-in fade-in duration-200">
               
-              {/* Top 3 Social Pill Buttons (Google, Apple, Facebook) */}
-              <div className="space-y-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomGoogleEmail(email.trim() || '');
-                    setGoogleConsentAccount(null);
-                    setShowGooglePicker(true);
-                  }}
-                  disabled={loading}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>Log in with Google</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleAppleLogin}
-                  disabled={loading}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
-                >
-                  <svg className="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.32c.67-.82 1.13-1.97.99-3.12-1.02.04-2.22.68-2.93 1.51-.62.72-1.17 1.88-1.01 3.01 1.14.09 2.28-.58 2.95-1.4z"/>
-                  </svg>
-                  <span>Log in with Apple</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleFacebookLogin}
-                  disabled={loading}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
-                >
-                  <svg className="w-4 h-4 shrink-0 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                  </svg>
-                  <span>Log in with Facebook</span>
-                </button>
-              </div>
-
-              {/* Saved Account Card */}
-              {savedUser && (
-                <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-800/40 rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-black flex items-center justify-center">
-                      {savedUser.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="text-left">
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{savedUser.name}</p>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400">{savedUser.email}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEmail(savedUser.email);
-                      setError(null);
-                    }}
-                    className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                  >
-                    Use
-                  </button>
-                </div>
-              )}
+              {/* Prominent Google Sign-In Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomGoogleEmail(email.trim() || '');
+                  setGoogleConsentAccount(null);
+                  setShowGooglePicker(true);
+                }}
+                disabled={loading}
+                className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-2xl transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
+              >
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>Continue with Google</span>
+              </button>
 
               {/* Divider */}
-              <div className="relative my-4">
+              <div className="relative my-3">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
                 </div>
-                <div className="relative flex justify-center text-xs text-slate-400 font-medium">
-                  <span className="bg-white dark:bg-slate-900 px-4">or</span>
+                <div className="relative flex justify-center text-xs text-slate-400 font-bold uppercase tracking-wider">
+                  <span className="bg-white dark:bg-slate-900 px-4">OR</span>
                 </div>
               </div>
 
               {/* Credentials Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                 <div>
-                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
-                    Email
-                  </label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                    placeholder="Email Address"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-2xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
-                    Password
-                  </label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                      placeholder="Password"
+                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-2xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all placeholder:text-slate-400"
                     />
                     <button
                       type="button"
@@ -776,245 +824,151 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 pt-1">
-                  <input
-                    type="checkbox"
-                    id="rememberMeCheckbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900 cursor-pointer"
-                  />
-                  <label htmlFor="rememberMeCheckbox" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer select-none">
-                    Keep me logged in
-                  </label>
-                </div>
-
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-bold text-sm rounded-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] cursor-pointer border border-slate-200 dark:border-slate-700 shadow-2xs"
+                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-base rounded-2xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] cursor-pointer shadow-md shadow-blue-500/25"
                 >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log in'}
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Log In'}
                 </button>
               </form>
 
               {/* Bottom Toggle Footer */}
-              <div className="text-center space-y-2 pt-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('forgot-password');
-                    setError(null);
-                  }}
-                  className="block w-full text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                >
-                  Forgot password?
-                </button>
-
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                  Issues with login?{' '}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setToast({
-                        type: 'info',
-                        message: 'Need help logging in?',
-                        subText: 'Use "Forgot password?" above or contact support@nearevent.com',
-                      });
-                    }}
-                    className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
-                  >
-                    Get help
-                  </button>
-                </p>
-
-                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium pt-1">
-                  Do not have an account yet?{' '}
+              <div className="text-center space-y-1.5 pt-2">
+                <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                  Don't have an account?{' '}
                   <button
                     type="button"
                     onClick={() => {
                       setActiveTab('signup');
                       setError(null);
                     }}
-                    className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                   >
-                    Sign up
+                    Register free
                   </button>
                 </p>
-              </div>
-            </div>
-          ) : activeTab === 'signup' ? (
-            /* TAB 2: SIGN UP (Exact Meetup Replica) */
-            <div className="space-y-3.5 animate-in fade-in duration-200 pt-2">
-              
-              {/* Top 3 Social Pill Buttons (Google, Apple, Facebook) */}
-              <div className="space-y-2.5">
+
                 <button
                   type="button"
                   onClick={() => {
-                    setCustomGoogleEmail(email.trim() || '');
-                    setGoogleConsentAccount(null);
-                    setShowGooglePicker(true);
+                    setActiveTab('forgot-password');
+                    setError(null);
                   }}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
+                  className="block w-full text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:underline cursor-pointer"
                 >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>Continue with Google</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleAppleLogin}
-                  disabled={loading}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
-                >
-                  <svg className="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.32c.67-.82 1.13-1.97.99-3.12-1.02.04-2.22.68-2.93 1.51-.62.72-1.17 1.88-1.01 3.01 1.14.09 2.28-.58 2.95-1.4z"/>
-                  </svg>
-                  <span>Continue with Apple</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleFacebookLogin}
-                  disabled={loading}
-                  className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
-                >
-                  <svg className="w-4 h-4 shrink-0 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                  </svg>
-                  <span>Continue with Facebook</span>
+                  Forgot your password?
                 </button>
               </div>
+            </div>
+          ) : activeTab === 'signup' ? (
+            /* TAB 2: SIGN UP (Exact DocsAI Style) */
+            <div className="space-y-4 animate-in fade-in duration-200">
+              
+              {/* Continue with Google */}
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomGoogleEmail(email.trim() || '');
+                  setGoogleConsentAccount(null);
+                  setShowGooglePicker(true);
+                }}
+                className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-2xl transition-all shadow-2xs flex items-center justify-center gap-3 cursor-pointer"
+              >
+                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+                <span>Continue with Google</span>
+              </button>
 
               {/* Divider */}
-              <div className="relative my-4">
+              <div className="relative my-3">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
                 </div>
-                <div className="relative flex justify-center text-xs text-slate-400 font-medium">
-                  <span className="bg-white dark:bg-slate-900 px-4">or</span>
+                <div className="relative flex justify-center text-xs font-bold uppercase text-slate-400 tracking-wider">
+                  <span className="bg-white dark:bg-slate-900 px-3">OR</span>
                 </div>
               </div>
 
-              <p className="text-center text-sm font-bold text-slate-800 dark:text-slate-100">
-                Sign up with email
-              </p>
-
-              <form onSubmit={handleSignUpSubmit} className="space-y-3.5 pt-1">
+              <form onSubmit={handleSignUpSubmit} className="space-y-3">
                 <div>
-                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
-                    Your Name
-                  </label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Rahul Sharma"
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                    placeholder="Full Name"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-2xl focus:ring-2 focus:ring-blue-600 focus:outline-none transition-all placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
-                    Email
-                  </label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                    placeholder="Email Address"
+                    className="w-full px-4 py-3 bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-2xl focus:ring-2 focus:ring-blue-600 focus:outline-none transition-all placeholder:text-slate-400"
                   />
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-bold text-slate-800 dark:text-slate-100">
-                      Password
-                    </label>
-                    {password && (
-                      <span className={`text-xs font-bold ${pwdStrength.text}`}>
-                        {pwdStrength.label}
-                      </span>
-                    )}
-                  </div>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="At least 6 characters"
-                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                      placeholder="Password"
+                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-2xl focus:ring-2 focus:ring-blue-600 focus:outline-none transition-all placeholder:text-slate-400"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-
-                  {/* Password Strength Bar */}
-                  {password && (
-                    <div className="mt-1.5 space-y-1">
-                      <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex gap-0.5">
-                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 1 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 2 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 3 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 4 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
-                    Confirm Password
-                  </label>
                   <div className="relative">
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Repeat your password"
-                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-full focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all"
+                      placeholder="Confirm Password"
+                      className="w-full pl-4 pr-11 py-3 bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-sm font-medium rounded-2xl focus:ring-2 focus:ring-blue-600 focus:outline-none transition-all placeholder:text-slate-400"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      className="absolute right-4 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
                       {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {confirmPassword && password !== confirmPassword && (
-                    <p className="text-[10px] text-rose-500 font-bold mt-1">Passwords do not match</p>
-                  )}
                 </div>
 
                 <div className="pt-1">
-                  <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-600 dark:text-slate-400 leading-tight select-none">
+                  <label className="flex items-start gap-2 cursor-pointer text-xs text-slate-600 dark:text-slate-400 leading-tight select-none">
                     <input
                       type="checkbox"
                       checked={acceptTerms}
                       onChange={(e) => setAcceptTerms(e.target.checked)}
-                      className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900 mt-0.5 cursor-pointer"
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300 mt-0.5 cursor-pointer"
                     />
                     <span>
                       I agree to the{' '}
-                      <span className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Terms of Service</span> and{' '}
-                      <span className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Privacy Policy</span>.
+                      <span className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Terms of Service</span> &{' '}
+                      <span className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Privacy Statement</span>
                     </span>
                   </label>
                 </div>
@@ -1022,14 +976,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                 <button
                   type="submit"
                   disabled={loading || !acceptTerms}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-full transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] cursor-pointer shadow-md shadow-blue-500/20"
+                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-base rounded-2xl shadow-md shadow-blue-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] cursor-pointer"
                 >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign up'}
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Create Account'}
                 </button>
               </form>
 
               {/* Bottom Toggle Footer */}
-              <p className="text-center text-xs text-slate-600 dark:text-slate-400 font-medium pt-3">
+              <p className="text-center text-xs text-slate-600 dark:text-slate-400 pt-2">
                 Already have an account?{' '}
                 <button
                   type="button"
@@ -1037,13 +991,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                     setActiveTab('signin');
                     setError(null);
                   }}
-                  className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                  className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
                 >
-                  Log in
+                  Log In
                 </button>
               </p>
             </div>
-          ) : activeTab === 'signup' ? (
+          ) : activeTab === 'forgot-password' ? (
             /* TAB 2: SIGN UP */
             <div className="space-y-4 animate-in fade-in duration-200">
               
