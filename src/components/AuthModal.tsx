@@ -188,7 +188,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
       const config = await getAuthConfig();
       const clientId = config.googleClientId || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '';
 
-      if (typeof window !== 'undefined' && (window as any).google?.accounts?.id && clientId && !clientId.includes('your_google_client_id')) {
+      if (!clientId || clientId.includes('your_google_client_id') || clientId === 'demo-google-oauth-client-id') {
+        setError(
+          `Google Client ID is not configured. Please set GOOGLE_CLIENT_ID in .env or Google Cloud Console, and add "${window.location.origin}/auth/google/callback" to Authorized Redirect URIs.`
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
         (window as any).google.accounts.id.initialize({
           client_id: clientId,
           callback: async (response: any) => {
@@ -208,11 +216,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         });
         (window as any).google.accounts.id.prompt((notification: any) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            openGoogleOAuthPopup(clientId || 'demo-google-oauth-client-id');
+            openGoogleOAuthPopup(clientId);
           }
         });
       } else {
-        openGoogleOAuthPopup(clientId || 'demo-google-oauth-client-id');
+        openGoogleOAuthPopup(clientId);
       }
     } catch (err: any) {
       console.error('Google Auth Init Error:', err);
