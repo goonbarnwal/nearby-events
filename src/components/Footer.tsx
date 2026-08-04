@@ -50,7 +50,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onOpenAuth }) 
                 <li key={cat}>
                   <button
                     onClick={() => onSelectCategory?.(cat)}
-                    className="text-slate-400 hover:text-blue-400 transition-colors"
+                    className="text-slate-400 hover:text-blue-400 transition-colors cursor-pointer"
                   >
                     {cat} Events
                   </button>
@@ -60,45 +60,30 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onOpenAuth }) 
           </div>
 
           {/* Major Tech Hubs */}
-          <div>
+          <div className="md:col-span-2">
             <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">Top Tech Hubs</h3>
-            <ul className="space-y-2.5 text-xs text-slate-400">
-              <li className="flex items-center gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs text-slate-400">
+              <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span>Pune (IEEE, PCCOE, Lavasa)</span>
-              </li>
-              <li className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span>Mumbai (BKC, Jio World)</span>
-              </li>
-              <li className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span>Bengaluru (Indiranagar, Koramangala)</span>
-              </li>
-              <li className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span>Delhi NCR (Pragati Maidan)</span>
-              </li>
-              <li className="flex items-center gap-2">
+              </div>
+              <div className="flex items-center gap-2 sm:col-span-2">
                 <MapPin className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span>Hyderabad (T-Hub 2.0)</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Organizer & Account */}
-          <div>
-            <h3 className="text-sm font-semibold text-white tracking-wider uppercase mb-4">For Organizers</h3>
-            <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-              Hosting a hackathon, tech conference or meetup? Post your event for developers and tech enthusiasts.
-            </p>
-            <button
-              onClick={onOpenAuth}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-blue-600/20 transition-all flex items-center gap-2"
-            >
-              <Calendar className="w-4 h-4" />
-              Submit Event
-            </button>
+              </div>
+            </div>
           </div>
 
         </div>

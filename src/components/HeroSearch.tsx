@@ -50,12 +50,12 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
       </div>
 
       {/* Hero Search Box Card */}
-      <div className="bg-white p-3 sm:p-3.5 rounded-2xl border border-slate-200/90 shadow-sm transition-shadow hover:shadow-md">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 sm:gap-2.5 items-center">
+      <div className="bg-white p-3 sm:p-4 rounded-3xl border border-slate-200/80 shadow-xs">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-center">
           
           {/* Location Field */}
-          <div className="md:col-span-3 relative flex items-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2.5 transition-colors focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
-            <MapPin className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
+          <div className="md:col-span-3 relative flex items-center bg-slate-50 hover:bg-slate-100/80 border border-slate-200/70 rounded-2xl px-3.5 py-2.5 transition-all focus-within:bg-white focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/10">
+            <MapPin className="w-4 h-4 text-blue-600 shrink-0 mr-2" />
             <input
               id="input-location"
               type="text"
@@ -71,7 +71,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
               onClick={onRequestLocation}
               disabled={isLocating}
               aria-label="Detect my current location"
-              className="p-1 text-blue-600 hover:text-blue-800 rounded-lg transition-colors shrink-0"
+              className="p-1 text-blue-600 hover:text-blue-800 rounded-xl transition-colors shrink-0"
               title="Detect my current location"
             >
               {isLocating ? (
@@ -83,7 +83,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
           </div>
 
           {/* Search Query Field */}
-          <div className="md:col-span-4 relative flex items-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2.5 transition-colors focus-within:bg-white focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100">
+          <div className="md:col-span-4 relative flex items-center bg-slate-50 hover:bg-slate-100/80 border border-slate-200/70 rounded-2xl px-3.5 py-2.5 transition-all focus-within:bg-white focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/10">
             <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2" />
             <input
               id="input-search-events"
@@ -99,7 +99,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
           </div>
 
           {/* Category Dropdown */}
-          <div className="md:col-span-2 relative flex items-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2.5 transition-colors">
+          <div className="md:col-span-2 relative flex items-center bg-slate-50 hover:bg-slate-100/80 border border-slate-200/70 rounded-2xl px-3.5 py-2.5 transition-all focus-within:bg-white focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/10">
             <select
               id="select-category"
               aria-label="Filter events by category"
@@ -117,7 +117,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
           </div>
 
           {/* Date Selector */}
-          <div className="md:col-span-2 relative flex items-center bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-2.5 transition-colors">
+          <div className="md:col-span-2 relative flex items-center bg-slate-50 hover:bg-slate-100/80 border border-slate-200/70 rounded-2xl px-3.5 py-2.5 transition-all focus-within:bg-white focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-500/10">
             <select
               id="select-date-filter"
               aria-label="Filter events by date"
@@ -139,7 +139,7 @@ export const HeroSearch: React.FC<HeroSearchProps> = ({
             <button
               id="btn-hero-search"
               onClick={onExecuteSearch}
-              className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm rounded-xl transition-all shadow-xs hover:shadow-md flex items-center justify-center gap-1.5"
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-2xl transition-all shadow-xs hover:shadow-md flex items-center justify-center gap-1.5"
             >
               Search
             </button>

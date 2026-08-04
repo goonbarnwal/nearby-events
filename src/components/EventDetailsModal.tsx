@@ -140,44 +140,47 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
     : '#';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 flex flex-col relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl border border-slate-100/80 flex flex-col relative">
         
-        {/* Header Image Banner */}
-        <div className="relative h-48 sm:h-56 w-full bg-slate-100 overflow-hidden shrink-0">
-          <img
-            src={event.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80'}
-            alt={event.title}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/20 to-transparent" />
+        {/* Scrollable Modal Content Wrapper */}
+        <div className="overflow-y-auto flex-1">
+          
+          {/* Header Image Banner */}
+          <div className="relative h-48 sm:h-56 w-full bg-slate-100 overflow-hidden shrink-0 rounded-t-3xl">
+            <img
+              src={event.imageUrl || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80'}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-950/20 to-transparent" />
 
-          {/* Close Button */}
-          <button
-            id="btn-close-details-modal"
-            onClick={onClose}
-            className="absolute top-4 right-4 p-2.5 rounded-full bg-white/80 hover:bg-white text-slate-700 hover:text-slate-900 shadow-md transition-all"
-          >
-            <X className="w-5 h-5 stroke-[2.2]" />
-          </button>
+            {/* Close Button */}
+            <button
+              id="btn-close-details-modal"
+              onClick={onClose}
+              className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-slate-900 shadow-md transition-all z-10 cursor-pointer"
+            >
+              <X className="w-5 h-5 stroke-[2.2]" />
+            </button>
 
-          {/* Category Pill Tag */}
-          <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-2">
-            <span className="px-3 py-1 bg-blue-600 text-white font-bold text-xs rounded-lg uppercase tracking-wider shadow-xs">
-              {event.category}
-            </span>
-            {event.subtype && (
-              <span className="px-3 py-1 bg-white/90 backdrop-blur-xs text-slate-900 font-bold text-xs rounded-lg shadow-xs">
-                {event.subtype}
+            {/* Category Pill Tag */}
+            <div className="absolute bottom-4 left-4 flex flex-wrap items-center gap-2">
+              <span className="px-3.5 py-1.5 bg-blue-600 text-white font-extrabold text-xs rounded-full uppercase tracking-wider shadow-xs">
+                {event.category}
               </span>
-            )}
-            {event.source === 'ticketmaster' && (
-              <span className="px-3 py-1 bg-indigo-600 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1">
-                ⚡ Ticketmaster Live API
-              </span>
-            )}
+              {event.subtype && (
+                <span className="px-3.5 py-1.5 bg-white/90 backdrop-blur-xs text-slate-900 font-extrabold text-xs rounded-full shadow-xs">
+                  {event.subtype}
+                </span>
+              )}
+              {event.source === 'ticketmaster' && (
+                <span className="px-3 py-1.5 bg-indigo-600 text-white font-bold text-xs rounded-full shadow-xs flex items-center gap-1">
+                  ⚡ Ticketmaster Live API
+                </span>
+              )}
+            </div>
           </div>
-        </div>
 
         {/* Modal Body */}
         <div className="p-6 sm:p-8 space-y-6">
@@ -352,6 +355,8 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               <span>{isRegistered ? '✓ Registered (Open Portal)' : 'Official Registration Link'}</span>
               <ExternalLink className="w-4 h-4" />
             </a>
+          </div>
+
           </div>
 
         </div>
