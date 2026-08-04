@@ -6,6 +6,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import { INITIAL_EVENTS } from './src/data/mockEvents.js';
 import { calculateDistance } from './src/utils/distance.js';
 
@@ -20,6 +21,8 @@ const UserSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String },
     googleId: { type: String },
+    profilePicture: { type: String },
+    provider: { type: String, default: 'email' },
     role: { type: String, default: 'user' },
     bookmarkedEventIds: [{ type: String }],
     registeredEventIds: [{ type: String }],
@@ -473,45 +476,156 @@ async function startServer() {
     }
   });
 
-  // Helper: Format Name to prevent raw email handles from showing
-  function formatName(nameStr?: string, emailStr?: string): string {
-    const cleanEmail = (emailStr || '').trim().toLowerCase();
-    if (cleanEmail === 'barnwalgoon@gmail.com') {
-      return 'Goonjan Barnwal';
-    }
-    let cleanName = (nameStr || '').trim();
-    if (!cleanName || cleanName.toLowerCase() === cleanEmail.split('@')[0].toLowerCase() || cleanName.includes('@')) {
-      if (cleanEmail) {
-        const parts = cleanEmail.split('@')[0].split(/[._-]/);
-        cleanName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-      }
-    }
-    return cleanName || 'Goonjan Barnwal';
-  }
+  // Config Endpoint to retrieve client OAuth ID
+  app.get('/api/auth/config', (req, res) => {
+    res.json({
+      googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '',
+    });
+  });
 
-  // Google OAuth Auth Endpoint
+  // Callback endpoint for Google OAuth Popup flow
+  app.get(['/auth/google/callback', '/auth/google/callback/'], (req, res) => {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Google Sign-In</title>
+        </head>
+        <body style="font-family: system-ui, sans-serif; text-align: center; padding: 40px; background: #0f172a; color: #fff;">
+          <h2>Processing Google Authentication...</h2>
+          <script>
+            (function() {
+              var hash = window.location.hash.substring(1);
+              var params = new URLSearchParams(hash || window.location.search);
+              var idToken = params.get('id_token') || params.get('credential');
+              var accessToken = params.get('access_token');
+              var code = params.get('code');
+              var error = params.get('error');
+
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'GOOGLE_OAUTH_SUCCESS',
+                  idToken: idToken,
+                  accessToken: accessToken,
+                  code: code,
+                  error: error
+                }, '*');
+                window.close();
+              } else {
+                document.body.innerHTML = '<h2>Authentication complete. You may close this window.</h2>';
+              }
+            })();
+          </script>
+        </body>
+      </html>
+    `);
+  });
+
+  // Real Google OAuth 2.0 Auth Endpoint
   app.post('/api/auth/google', async (req, res) => {
     try {
-      const { name: googleName, email: googleEmail } = req.body;
-      const cleanEmail = (googleEmail || 'user@nearevent.app').trim().toLowerCase();
-      const cleanName = formatName(googleName, cleanEmail);
+      const { credential, token: bodyToken, code, accessToken, googleId: reqGoogleId, name: reqName, email: reqEmail, picture: reqPicture } = req.body;
+      const idToken = credential || bodyToken;
+
+      let verifiedSub = reqGoogleId || '';
+      let verifiedEmail = reqEmail || '';
+      let verifiedName = reqName || '';
+      let verifiedPicture = reqPicture || '';
+
+      const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '';
+
+      // 1. Verify ID Token using google-auth-library if provided
+      if (idToken) {
+        try {
+          if (googleClientId) {
+            const oauth2Client = new OAuth2Client(googleClientId);
+            const ticket = await oauth2Client.verifyIdToken({
+              idToken: idToken,
+              audience: googleClientId,
+            });
+            const payload = ticket.getPayload();
+            if (payload) {
+              verifiedSub = payload.sub || verifiedSub;
+              verifiedEmail = payload.email || verifiedEmail;
+              verifiedName = payload.name || verifiedName;
+              verifiedPicture = payload.picture || verifiedPicture;
+            }
+          } else {
+            // Fallback: Verify via Google TokenInfo API
+            const tokenInfoRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+            if (tokenInfoRes.ok) {
+              const payload: any = await tokenInfoRes.json();
+              verifiedSub = payload.sub || verifiedSub;
+              verifiedEmail = payload.email || verifiedEmail;
+              verifiedName = payload.name || verifiedName;
+              verifiedPicture = payload.picture || verifiedPicture;
+            }
+          }
+        } catch (verifyErr) {
+          console.warn('Google ID token verification error, attempting fallback access_token userinfo:', verifyErr);
+        }
+      }
+
+      // 2. If access_token provided instead, fetch Google UserInfo
+      if ((!verifiedEmail || !verifiedSub) && accessToken) {
+        try {
+          const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          if (userInfoRes.ok) {
+            const info: any = await userInfoRes.json();
+            verifiedSub = info.sub || verifiedSub;
+            verifiedEmail = info.email || verifiedEmail;
+            verifiedName = info.name || verifiedName;
+            verifiedPicture = info.picture || verifiedPicture;
+          }
+        } catch (infoErr) {
+          console.warn('Google Access Token info error:', infoErr);
+        }
+      }
+
+      const cleanEmail = (verifiedEmail || reqEmail || '').trim().toLowerCase();
+      let cleanName = (verifiedName || reqName || '').trim();
+
+      if (!cleanEmail) {
+        return res.status(400).json({ error: 'Valid Google email account is required.' });
+      }
+
+      if (!cleanName) {
+        const handle = cleanEmail.split('@')[0];
+        cleanName = handle.charAt(0).toUpperCase() + handle.slice(1);
+      }
+
+      const assignedRole = isAdminEmail(cleanEmail) ? 'admin' : 'user';
 
       let userObj: any;
       if (isMongoConnected) {
-        let user: any = await UserModel.findOne({ email: cleanEmail } as any);
-        const assignedRole = isAdminEmail(cleanEmail) ? 'admin' : 'user';
+        let user: any = await UserModel.findOne({
+          $or: [{ googleId: verifiedSub }, { email: cleanEmail }]
+        } as any);
+
         if (!user) {
           user = await UserModel.create({
+            googleId: verifiedSub || `google_${Date.now()}`,
             name: cleanName,
             email: cleanEmail,
+            profilePicture: verifiedPicture,
             role: assignedRole,
             isEmailVerified: true,
             provider: 'google',
           });
         } else {
           let updated = false;
-          if (cleanName && user.name !== cleanName) {
+          if (verifiedSub && !user.googleId) {
+            user.googleId = verifiedSub;
+            updated = true;
+          }
+          if (cleanName && user.name !== cleanName && !user.name.includes(' ')) {
             user.name = cleanName;
+            updated = true;
+          }
+          if (verifiedPicture && user.profilePicture !== verifiedPicture) {
+            user.profilePicture = verifiedPicture;
             updated = true;
           }
           if (user.role !== assignedRole && isAdminEmail(cleanEmail)) {
@@ -520,10 +634,13 @@ async function startServer() {
           }
           if (updated) await user.save();
         }
+
         userObj = {
           id: user._id.toString(),
+          googleId: user.googleId,
           name: user.name,
           email: user.email,
+          profilePicture: user.profilePicture || verifiedPicture,
           role: user.role,
           bookmarkedEventIds: user.bookmarkedEventIds || [],
           registeredEventIds: user.registeredEventIds || [],
@@ -535,9 +652,11 @@ async function startServer() {
         if (!userObj) {
           userObj = {
             id: `google-${Date.now()}`,
+            googleId: verifiedSub || `google-${Date.now()}`,
             name: cleanName,
             email: cleanEmail,
-            role: isAdminEmail(cleanEmail) ? 'admin' : 'user',
+            profilePicture: verifiedPicture,
+            role: assignedRole,
             bookmarkedEventIds: [],
             registeredEventIds: [],
             isEmailVerified: true,
@@ -545,12 +664,10 @@ async function startServer() {
           };
           usersMemoryDB.push(userObj);
         } else {
-          if (cleanName) {
-            userObj.name = cleanName;
-          }
-          if (isAdminEmail(cleanEmail)) {
-            userObj.role = 'admin';
-          }
+          userObj.name = cleanName || userObj.name;
+          if (verifiedPicture) userObj.profilePicture = verifiedPicture;
+          if (verifiedSub) userObj.googleId = verifiedSub;
+          if (isAdminEmail(cleanEmail)) userObj.role = 'admin';
           userObj.isEmailVerified = true;
         }
       }
@@ -569,9 +686,9 @@ async function startServer() {
       );
 
       res.json({ token, user: userObj });
-    } catch (err) {
-      console.error('Google auth error:', err);
-      res.status(500).json({ error: 'Google authentication failed' });
+    } catch (err: any) {
+      console.error('Google Auth Error:', err);
+      res.status(500).json({ error: err.message || 'Google authentication failed' });
     }
   });
 

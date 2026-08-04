@@ -12,19 +12,16 @@ interface HeaderProps {
   onTriggerSearchFocus: () => void;
 }
 
-const formatDisplayName = (nameStr?: string, emailStr?: string): string => {
-  const cleanEmail = (emailStr || '').trim().toLowerCase();
-  if (cleanEmail === 'barnwalgoon@gmail.com') {
-    return 'Goonjan Barnwal';
+const formatDisplayName = (user: UserType | null): string => {
+  if (!user) return '';
+  if (user.name && user.name.trim() && !user.name.includes('@')) {
+    return user.name;
   }
-  let cleanName = (nameStr || '').trim();
-  if (!cleanName || cleanName.toLowerCase() === cleanEmail.split('@')[0].toLowerCase() || cleanName.includes('@')) {
-    if (cleanEmail) {
-      const parts = cleanEmail.split('@')[0].split(/[._-]/);
-      cleanName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-    }
+  if (user.email) {
+    const handle = user.email.split('@')[0];
+    return handle.charAt(0).toUpperCase() + handle.slice(1);
   }
-  return cleanName || 'Goonjan Barnwal';
+  return 'User';
 };
 
 export const Header: React.FC<HeaderProps> = ({
@@ -37,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
   onTriggerSearchFocus,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const displayName = user ? formatDisplayName(user.name, user.email) : '';
+  const displayName = formatDisplayName(user);
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs">

@@ -30,6 +30,7 @@ import {
   requestPasswordReset,
   resetPassword,
   verifyEmail,
+  getAuthConfig,
 } from '../services/api';
 
 interface AuthModalProps {
@@ -69,13 +70,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Google/Social picker state
-  const [showGooglePicker, setShowGooglePicker] = useState(false);
-  const [customGoogleName, setCustomGoogleName] = useState('');
-  const [customGoogleEmail, setCustomGoogleEmail] = useState('');
-  const [googleConsentAccount, setGoogleConsentAccount] = useState<{ name: string; email: string } | null>(null);
-  const [showAddGoogleAccount, setShowAddGoogleAccount] = useState(false);
-
   // Forgot Password / OTP states
   const [resetStep, setResetStep] = useState<'request' | 'verify'>('request');
   const [otpCode, setOtpCode] = useState('');
@@ -109,86 +103,121 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     }
   };
 
-  // Format Name helper to convert raw email handles to proper Full Names
-  const formatName = (nameStr?: string, emailStr?: string): string => {
-    const cleanEmail = (emailStr || '').trim().toLowerCase();
-    if (cleanEmail === 'barnwalgoon@gmail.com') {
-      return 'Goonjan Barnwal';
-    }
-    let cleanName = (nameStr || '').trim();
-    if (!cleanName || cleanName.toLowerCase() === cleanEmail.split('@')[0].toLowerCase() || cleanName.includes('@')) {
-      if (cleanEmail) {
-        const parts = cleanEmail.split('@')[0].split(/[._-]/);
-        cleanName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-      }
-    }
-    return cleanName || 'Goonjan Barnwal';
-  };
-
-  const getGoogleAccountsList = (): Array<{ name: string; email: string; avatarBg: string }> => {
-    const list: Array<{ name: string; email: string; avatarBg: string }> = [];
-    try {
-      const raw = localStorage.getItem('nearevent_google_accounts');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((item: any) => {
-            if (item && item.email) {
-              list.push({
-                name: formatName(item.name, item.email),
-                email: item.email,
-                avatarBg: item.avatarBg || 'bg-purple-600',
-              });
-            }
-          });
-        }
-      }
-    } catch (e) {
-      console.warn(e);
-    }
-
-    const savedUser = getSavedUser();
-    if (savedUser && savedUser.email && !list.some(a => a.email.toLowerCase() === savedUser.email.toLowerCase())) {
-      list.unshift({
-        name: formatName(savedUser.name, savedUser.email),
-        email: savedUser.email,
-        avatarBg: 'bg-emerald-600',
-      });
-    }
-
-    return list;
-  };
-
-  const saveGoogleAccount = (acc: { name: string; email: string }) => {
-    try {
-      const formatted = { name: formatName(acc.name, acc.email), email: acc.email };
-      const raw = localStorage.getItem('nearevent_google_accounts');
-      let list: Array<{ name: string; email: string; avatarBg: string }> = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(list)) list = [];
-      const idx = list.findIndex(a => a.email.toLowerCase() === formatted.email.toLowerCase());
-      if (idx >= 0) {
-        list[idx] = { ...list[idx], name: formatted.name };
-      } else {
-        const bgColors = ['bg-purple-600', 'bg-blue-600', 'bg-emerald-600', 'bg-indigo-600'];
-        const randomBg = bgColors[list.length % bgColors.length];
-        list.unshift({
-          name: formatted.name,
-          email: formatted.email,
-          avatarBg: randomBg,
-        });
-      }
-      localStorage.setItem('nearevent_google_accounts', JSON.stringify(list));
-    } catch (e) {
-      console.warn(e);
-    }
-  };
-
   const saveUserToLocal = (u: { name: string; email: string }) => {
     try {
-      const formatted = { name: formatName(u.name, u.email), email: u.email };
-      localStorage.setItem('nearevent_saved_user', JSON.stringify(formatted));
+      localStorage.setItem('nearevent_saved_user', JSON.stringify(u));
     } catch (e) {
       console.warn('Failed to save user profile:', e);
+    }
+  };
+
+  // Listen for Google OAuth popup callback message
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS') {
+        const { idToken, accessToken, code, error: popupErr } = event.data;
+        if (popupErr) {
+          setError(`Google sign-in cancelled or failed: ${popupErr}`);
+          setLoading(false);
+          return;
+        }
+
+        try {
+          setLoading(true);
+          const res = await googleAuthUser({
+            credential: idToken,
+            accessToken: accessToken,
+            code: code,
+          });
+
+          if (res.token) {
+            localStorage.setItem('nearevent_jwt', res.token);
+          }
+          saveUserToLocal({ name: res.user.name, email: res.user.email });
+
+          setToast({
+            type: 'success',
+            message: 'Google Sign-In Successful!',
+            subText: `Welcome, ${res.user.name}`,
+          });
+
+          setTimeout(() => {
+            onLoginSuccess(res.user);
+          }, 600);
+        } catch (err: any) {
+          setError(err.message || 'Failed to authenticate Google account with server.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onLoginSuccess]);
+
+  const openGoogleOAuthPopup = (clientId: string) => {
+    const redirectUri = `${window.location.origin}/auth/google/callback`;
+    const scope = encodeURIComponent('openid email profile');
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(
+      clientId
+    )}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token%20token&scope=${scope}&nonce=${Date.now()}&prompt=select_account`;
+
+    const width = 500;
+    const height = 620;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    const popup = window.open(
+      googleAuthUrl,
+      'google_oauth_popup',
+      `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,status=yes`
+    );
+
+    if (!popup) {
+      setError('Popup was blocked by your browser. Please allow popups for Google Sign-In.');
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setLoading(true);
+
+    try {
+      const config = await getAuthConfig();
+      const clientId = config.googleClientId || (import.meta as any).env?.VITE_GOOGLE_CLIENT_ID || '';
+
+      if (typeof window !== 'undefined' && (window as any).google?.accounts?.id && clientId && !clientId.includes('your_google_client_id')) {
+        (window as any).google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (response: any) => {
+            if (response.credential) {
+              try {
+                const res = await googleAuthUser({ credential: response.credential });
+                if (res.token) localStorage.setItem('nearevent_jwt', res.token);
+                saveUserToLocal(res.user);
+                onLoginSuccess(res.user);
+              } catch (err: any) {
+                setError(err.message || 'Google Auth Verification Failed');
+              } finally {
+                setLoading(false);
+              }
+            }
+          },
+        });
+        (window as any).google.accounts.id.prompt((notification: any) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            openGoogleOAuthPopup(clientId || 'demo-google-oauth-client-id');
+          }
+        });
+      } else {
+        openGoogleOAuthPopup(clientId || 'demo-google-oauth-client-id');
+      }
+    } catch (err: any) {
+      console.error('Google Auth Init Error:', err);
+      setError(err.message || 'Could not launch Google Sign In');
+      setLoading(false);
     }
   };
 
@@ -313,42 +342,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
   };
 
   // Handle Google Login / Social execute
-  const handleExecuteGoogleLogin = async (selectedName: string, selectedEmail: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await googleAuthUser({ name: selectedName, email: selectedEmail });
-      if (res.token) {
-        localStorage.setItem('nearevent_jwt', res.token);
-      }
-      saveUserToLocal({ name: res.user.name, email: res.user.email });
-      saveGoogleAccount({ name: res.user.name, email: res.user.email });
-
-      setToast({
-        type: 'success',
-        message: 'Google Sign-In Successful',
-        subText: `Logged in as ${res.user.name}`,
-      });
-
-      setTimeout(() => {
-        onLoginSuccess(res.user);
-      }, 700);
-    } catch (err: any) {
-      setError(err.message || 'Google authentication failed');
-    } finally {
-      setLoading(false);
-      setShowGooglePicker(false);
-    }
-  };
-
   // Handle GitHub Login
   const handleGithubLogin = async () => {
-    if (!email.trim() && !customGoogleEmail.trim()) {
-      setGoogleConsentAccount(null);
-      setShowGooglePicker(true);
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      setError('Please enter your email to log in with GitHub.');
       return;
     }
-    const targetEmail = email.trim() || customGoogleEmail.trim();
     const targetName = name.trim() || targetEmail.split('@')[0] || 'GitHub Developer';
 
     setLoading(true);
@@ -379,12 +379,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   // Handle Apple Login
   const handleAppleLogin = async () => {
-    if (!email.trim() && !customGoogleEmail.trim()) {
-      setGoogleConsentAccount(null);
-      setShowGooglePicker(true);
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      setError('Please enter your email to log in with Apple.');
       return;
     }
-    const targetEmail = email.trim() || customGoogleEmail.trim();
     const targetName = name.trim() || targetEmail.split('@')[0] || 'Apple User';
 
     setLoading(true);
@@ -415,12 +414,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   // Handle Facebook Login
   const handleFacebookLogin = async () => {
-    if (!email.trim() && !customGoogleEmail.trim()) {
-      setGoogleConsentAccount(null);
-      setShowGooglePicker(true);
+    const targetEmail = email.trim();
+    if (!targetEmail) {
+      setError('Please enter your email to log in with Facebook.');
       return;
     }
-    const targetEmail = email.trim() || customGoogleEmail.trim();
     const targetName = name.trim() || targetEmail.split('@')[0] || 'Facebook User';
 
     setLoading(true);
@@ -561,70 +559,64 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto backdrop-blur-md bg-slate-950/60 animate-in fade-in duration-200">
-      <div className={`relative w-full max-w-md overflow-hidden transition-all my-auto shadow-2xl ${
-        showGooglePicker
-          ? 'bg-white text-slate-900 rounded-2xl border border-slate-200 p-6 sm:p-7'
-          : 'bg-slate-900 text-white rounded-[28px] border border-slate-800 p-0'
-      }`}>
+      <div className="relative w-full max-w-md overflow-hidden transition-all my-auto shadow-2xl bg-slate-900 text-white rounded-[28px] border border-slate-800 p-0">
         
         {/* Header Bar for regular auth modal */}
-        {!showGooglePicker && (
-          <div className="relative px-6 pt-6 pb-2">
-            {/* Close Button */}
-            <button
-              onClick={onClose}
-              className="absolute right-5 top-5 p-2 rounded-full text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors cursor-pointer"
-              title="Close"
-            >
-              <X className="w-5 h-5 stroke-[2.5]" />
-            </button>
+        <div className="relative px-6 pt-6 pb-2">
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            className="absolute right-5 top-5 p-2 rounded-full text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors cursor-pointer"
+            title="Close"
+          >
+            <X className="w-5 h-5 stroke-[2.5]" />
+          </button>
 
-            {activeTab !== 'forgot-password' && activeTab !== 'verify-email' && (
-              <div className="space-y-4 text-center">
-                {/* Top Pill Tab Switcher */}
-                <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-full w-full max-w-xs mx-auto border border-slate-200/50 dark:border-slate-700/50">
-                  <button
-                    type="button"
-                    onClick={() => { setActiveTab('signin'); setError(null); }}
-                    className={`flex-1 py-2 text-xs font-bold rounded-full transition-all cursor-pointer ${
-                      activeTab === 'signin'
-                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    Log In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setActiveTab('signup'); setError(null); }}
-                    className={`flex-1 py-2 text-xs font-bold rounded-full transition-all cursor-pointer ${
-                      activeTab === 'signup'
-                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                        : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    Create Account
-                  </button>
-                </div>
-
-                {/* Title & Subtitle */}
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                    {activeTab === 'signin' ? 'Log In to NearEvent' : 'Create a Free NearEvent Account'}
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
-                    {activeTab === 'signin'
-                      ? 'Access your saved events, tickets, and AI tools.'
-                      : 'Join over 100K+ members discovering local events daily.'}
-                  </p>
-                </div>
+          {activeTab !== 'forgot-password' && activeTab !== 'verify-email' && (
+            <div className="space-y-4 text-center">
+              {/* Top Pill Tab Switcher */}
+              <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-full w-full max-w-xs mx-auto border border-slate-200/50 dark:border-slate-700/50">
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('signin'); setError(null); }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-full transition-all cursor-pointer ${
+                    activeTab === 'signin'
+                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  Log In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('signup'); setError(null); }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-full transition-all cursor-pointer ${
+                    activeTab === 'signup'
+                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  Create Account
+                </button>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Title & Subtitle */}
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                  {activeTab === 'signin' ? 'Log In to NearEvent' : 'Create a Free NearEvent Account'}
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-1">
+                  {activeTab === 'signin'
+                    ? 'Access your saved events, tickets, and AI tools.'
+                    : 'Join over 100K+ members discovering local events daily.'}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Custom Notice Banner for unauthenticated actions */}
-        {initialMessage && !toast && !showGooglePicker && (
+        {initialMessage && !toast && (
           <div className="mx-6 mt-2 p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-2.5">
             <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
             <div className="font-medium">{initialMessage}</div>
@@ -632,7 +624,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         )}
 
         {/* Dynamic Toast Notification */}
-        {toast && !showGooglePicker && (
+        {toast && (
           <div className={`mx-6 mt-2 p-3 rounded-2xl border text-xs flex items-start gap-3 animate-in slide-in-from-top-2 duration-200 ${
             toast.type === 'success'
               ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
@@ -654,7 +646,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         )}
 
         {/* Global Error Banner */}
-        {error && !toast && !showGooglePicker && (
+        {error && !toast && (
           <div className="mx-6 mt-2 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in">
             <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
             <div className="flex-1 font-medium">{error}</div>
@@ -665,243 +657,28 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         )}
 
         {/* Modal Main Content Container */}
-        <div className={showGooglePicker ? 'p-0' : 'p-6 pt-3'}>
-
-          {/* REALISTIC GOOGLE OAUTH ACCOUNT CHOOSER & PERMISSIONS SCREEN */}
-          {showGooglePicker ? (
-            <div className="space-y-4 bg-white text-slate-900 animate-in zoom-in-95 duration-200">
+        <div className="p-6 pt-3">
+          {activeTab === 'signin' ? (
+            /* TAB 1: LOG IN */
+            <div className="space-y-4 animate-in fade-in duration-200">
               
-              {/* Header: Sign in with Google */}
-              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-                <div className="flex items-center gap-2">
-                  {googleConsentAccount && (
-                    <button
-                      type="button"
-                      onClick={() => setGoogleConsentAccount(null)}
-                      className="p-1 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                      title="Back to account chooser"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                    </button>
-                  )}
+              {/* Prominent Google Sign-In Button */}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-2xl transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-600 dark:text-slate-400" />
+                ) : (
                   <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                   </svg>
-                  <span className="text-sm font-semibold text-slate-800">Sign in with Google</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowGooglePicker(false)}
-                  className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  title="Close Google Sign-in"
-                >
-                  <X className="w-5 h-5 stroke-[2]" />
-                </button>
-              </div>
-
-              {!googleConsentAccount ? (
-                /* STEP 1: CHOOSE AN ACCOUNT OR ENTER GOOGLE EMAIL */
-                <div className="space-y-4 pt-1">
-                  <div>
-                    <h3 className="text-2xl font-normal text-slate-900 tracking-tight">
-                      {getGoogleAccountsList().length > 0 && !showAddGoogleAccount ? 'Choose an account' : 'Sign in'}
-                    </h3>
-                    <p className="text-sm text-slate-600 font-normal mt-1">
-                      to continue to <span className="font-semibold text-blue-600">nearevent.com</span>
-                    </p>
-                  </div>
-
-                  {getGoogleAccountsList().length > 0 && !showAddGoogleAccount ? (
-                    /* Account List View */
-                    <div className="border-t border-b border-slate-200 divide-y divide-slate-100 my-4">
-                      {getGoogleAccountsList().map((acc, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setGoogleConsentAccount({ name: acc.name, email: acc.email })}
-                          className="w-full py-3.5 px-2 hover:bg-slate-50 flex items-center justify-between text-left transition-colors cursor-pointer group"
-                        >
-                          <div className="flex items-center gap-3.5">
-                            <div className={`w-9 h-9 rounded-full ${acc.avatarBg || 'bg-purple-600'} text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-2xs`}>
-                              {acc.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="truncate">
-                              <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">{acc.name}</p>
-                              <p className="text-xs text-slate-500 font-normal truncate">{acc.email}</p>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-
-                      {/* Use Another Account */}
-                      <button
-                        type="button"
-                        onClick={() => setShowAddGoogleAccount(true)}
-                        className="w-full py-3.5 px-2 hover:bg-slate-50 flex items-center gap-3.5 text-left transition-colors cursor-pointer text-slate-800 font-medium text-sm"
-                      >
-                        <div className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 border border-slate-200">
-                          <UserIcon className="w-4.5 h-4.5" />
-                        </div>
-                        <span>Use another account</span>
-                      </button>
-                    </div>
-                  ) : (
-                    /* Enter Email View */
-                    <div className="space-y-4 my-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-700">Google Email address</label>
-                        <input
-                          type="email"
-                          placeholder="Email or phone"
-                          value={customGoogleEmail}
-                          onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              if (customGoogleEmail.trim() && customGoogleEmail.includes('@')) {
-                                const typedName = customGoogleEmail.split('@')[0];
-                                setGoogleConsentAccount({ name: typedName, email: customGoogleEmail.trim() });
-                              } else {
-                                setError('Please enter a valid Google email.');
-                              }
-                            }
-                          }}
-                          className="w-full px-4 py-3 bg-white border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all shadow-xs"
-                          autoFocus
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between pt-2">
-                        {getGoogleAccountsList().length > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowAddGoogleAccount(false)}
-                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
-                          >
-                            Back to saved accounts
-                          </button>
-                        ) : (
-                          <span className="text-xs text-slate-500 font-medium">Forgot email?</span>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (customGoogleEmail.trim() && customGoogleEmail.includes('@')) {
-                              const typedName = customGoogleEmail.split('@')[0];
-                              setGoogleConsentAccount({ name: typedName, email: customGoogleEmail.trim() });
-                            } else {
-                              setError('Please enter a valid Google email address.');
-                            }
-                          }}
-                          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 cursor-pointer transition-all"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Footer links matching standard Google Popup */}
-                  <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
-                    <span className="flex items-center gap-1 cursor-pointer hover:text-slate-700">
-                      English (United States) <span className="text-[9px]">▼</span>
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <span className="hover:underline hover:text-slate-700 cursor-pointer">Help</span>
-                      <span className="hover:underline hover:text-slate-700 cursor-pointer">Privacy</span>
-                      <span className="hover:underline hover:text-slate-700 cursor-pointer">Terms</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                /* STEP 2: GOOGLE PERMISSION CONSENT SCREEN */
-                <div className="space-y-4 pt-1 animate-in fade-in duration-200">
-                  <div>
-                    <h3 className="text-2xl font-normal text-slate-900 tracking-tight">
-                      Sign in to nearevent.com
-                    </h3>
-                  </div>
-
-                  {/* Account Dropdown Pill */}
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 border border-slate-200 rounded-full text-xs font-medium text-slate-800">
-                    <div className="w-5 h-5 rounded-full bg-purple-600 text-white font-bold text-[10px] flex items-center justify-center">
-                      {googleConsentAccount.name.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="truncate max-w-[200px]">{googleConsentAccount.email}</span>
-                  </div>
-
-                  {/* Information access prompt */}
-                  <p className="text-xs sm:text-sm text-slate-700 font-medium">
-                    Google will allow <span className="font-bold">nearevent.com</span> to access this info about you
-                  </p>
-
-                  <div className="space-y-3 pl-1 py-1">
-                    <div className="flex items-start gap-3">
-                      <UserIcon className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">{googleConsentAccount.name}</p>
-                        <p className="text-[11px] text-slate-500">Name and profile picture</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <Mail className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">{googleConsentAccount.email}</p>
-                        <p className="text-[11px] text-slate-500">Email address</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] text-slate-500 leading-relaxed pt-2 border-t border-slate-100">
-                    Review nearevent.com's <span className="text-blue-600 font-medium cursor-pointer">privacy policy</span> and <span className="text-blue-600 font-medium cursor-pointer">Terms of Service</span> to understand how nearevent.com will process and protect your data.
-                  </p>
-
-                  {/* Consent Action Buttons */}
-                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
-                    <button
-                      type="button"
-                      onClick={() => setGoogleConsentAccount(null)}
-                      className="px-5 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50 rounded-full border border-slate-300 transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleExecuteGoogleLogin(googleConsentAccount.name, googleConsentAccount.email)}
-                      className="px-6 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-full shadow-md shadow-blue-500/20 transition-all cursor-pointer flex items-center gap-2"
-                    >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : activeTab === 'signin' ? (
-            /* TAB 1: LOG IN (Exact DocsAI Style) */
-            <div className="space-y-4 animate-in fade-in duration-200">
-              
-              {/* Prominent Google Sign-In Button */}
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomGoogleEmail(email.trim() || '');
-                  setGoogleConsentAccount(null);
-                  setShowGooglePicker(true);
-                }}
-                disabled={loading}
-                className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-2xl transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
-              >
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
+                )}
                 <span>Continue with Google</span>
               </button>
 
@@ -992,19 +769,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
               {/* Continue with Google */}
               <button
                 type="button"
-                onClick={() => {
-                  setCustomGoogleEmail(email.trim() || '');
-                  setGoogleConsentAccount(null);
-                  setShowGooglePicker(true);
-                }}
+                onClick={handleGoogleLogin}
+                disabled={loading}
                 className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-2xl transition-all shadow-2xs flex items-center justify-center gap-3 cursor-pointer"
               >
-                <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-600 dark:text-slate-400" />
+                ) : (
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                )}
                 <span>Continue with Google</span>
               </button>
 
@@ -1128,7 +906,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
               {/* Google Fast Sign Up Option */}
               <button
                 type="button"
-                onClick={() => setShowGooglePicker(true)}
+                onClick={handleGoogleLogin}
                 className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-xs font-bold rounded-2xl transition-all shadow-xs flex items-center justify-center gap-2.5 cursor-pointer"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -1471,14 +1249,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         </div>
 
         {/* Modal Footer Security Badge */}
-        {!showGooglePicker && (
-          <div className="px-6 py-3 bg-slate-950/80 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 font-medium">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" /> 256-bit SSL Encrypted & JWT Secured
-            </span>
-            <span>NearEvent v2.5</span>
-          </div>
-        )}
+        <div className="px-6 py-3 bg-slate-950/80 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+          <span className="flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3 text-emerald-400" /> 256-bit SSL Encrypted & JWT Secured
+          </span>
+          <span>NearEvent v2.5</span>
+        </div>
 
       </div>
     </div>

@@ -233,9 +233,31 @@ export async function loginUser(data: { email: string; password: string; remembe
 }
 
 /**
+ * Fetch Server Auth Config (Client IDs)
+ */
+export async function getAuthConfig(): Promise<{ googleClientId: string }> {
+  try {
+    const res = await fetch('/api/auth/config');
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch auth config:', err);
+  }
+  return { googleClientId: '' };
+}
+
+/**
  * Google OAuth Authentication
  */
-export async function googleAuthUser(data: { credential?: string; name?: string; email?: string }): Promise<{ token: string; user: User }> {
+export async function googleAuthUser(data: {
+  credential?: string;
+  token?: string;
+  accessToken?: string;
+  code?: string;
+  googleId?: string;
+  name?: string;
+  email?: string;
+  picture?: string;
+}): Promise<{ token: string; user: User }> {
   const res = await fetch('/api/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
