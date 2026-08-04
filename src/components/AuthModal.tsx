@@ -140,15 +140,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
       });
     }
 
-    // Default active user if list is empty
-    if (list.length === 0) {
-      list.push({
-        name: 'Goonjan Barnwal',
-        email: 'barnwalgoon@gmail.com',
-        avatarBg: 'bg-purple-600',
-      });
-    }
-
     return list;
   };
 
@@ -551,11 +542,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
   const savedUser = getSavedUser();
 
   return (
-    <div className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto backdrop-blur-md bg-slate-950/65 animate-in fade-in duration-200 ${isDarkMode && !showGooglePicker ? 'dark' : ''}`}>
-      <div className={`relative w-full max-w-md overflow-hidden transition-all my-auto ${
-        showGooglePicker
-          ? 'bg-white text-slate-900 rounded-2xl shadow-2xl border border-slate-200 p-6 sm:p-7'
-          : 'bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl border border-slate-200/80 dark:border-slate-800/80 text-slate-800 dark:text-slate-100 p-0'
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto backdrop-blur-md bg-slate-950/60 animate-in fade-in duration-200">
+      <div className={`relative w-full max-w-md overflow-hidden transition-all my-auto bg-white text-slate-900 shadow-2xl border border-slate-200 ${
+        showGooglePicker ? 'rounded-2xl p-6 sm:p-7' : 'rounded-[28px] p-0'
       }`}>
         
         {/* Header Bar for regular auth modal */}
@@ -694,40 +683,40 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
               </div>
 
               {!googleConsentAccount ? (
-                /* STEP 1: CHOOSE AN ACCOUNT */
+                /* STEP 1: CHOOSE AN ACCOUNT OR ENTER GOOGLE EMAIL */
                 <div className="space-y-4 pt-1">
                   <div>
                     <h3 className="text-2xl font-normal text-slate-900 tracking-tight">
-                      Choose an account
+                      {getGoogleAccountsList().length > 0 && !showAddGoogleAccount ? 'Choose an account' : 'Sign in'}
                     </h3>
                     <p className="text-sm text-slate-600 font-normal mt-1">
                       to continue to <span className="font-semibold text-blue-600">nearevent.com</span>
                     </p>
                   </div>
 
-                  {/* Account List Items */}
-                  <div className="border-t border-b border-slate-200 divide-y divide-slate-100 my-4">
-                    {getGoogleAccountsList().map((acc, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setGoogleConsentAccount({ name: acc.name, email: acc.email })}
-                        className="w-full py-3.5 px-2 hover:bg-slate-50 flex items-center justify-between text-left transition-colors cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-3.5">
-                          <div className={`w-9 h-9 rounded-full ${acc.avatarBg || 'bg-purple-600'} text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-2xs`}>
-                            {acc.name.charAt(0).toUpperCase()}
+                  {getGoogleAccountsList().length > 0 && !showAddGoogleAccount ? (
+                    /* Account List View */
+                    <div className="border-t border-b border-slate-200 divide-y divide-slate-100 my-4">
+                      {getGoogleAccountsList().map((acc, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setGoogleConsentAccount({ name: acc.name, email: acc.email })}
+                          className="w-full py-3.5 px-2 hover:bg-slate-50 flex items-center justify-between text-left transition-colors cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-3.5">
+                            <div className={`w-9 h-9 rounded-full ${acc.avatarBg || 'bg-purple-600'} text-white font-bold flex items-center justify-center text-sm shrink-0 shadow-2xs`}>
+                              {acc.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="truncate">
+                              <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">{acc.name}</p>
+                              <p className="text-xs text-slate-500 font-normal truncate">{acc.email}</p>
+                            </div>
                           </div>
-                          <div className="truncate">
-                            <p className="text-sm font-semibold text-slate-900 group-hover:text-blue-600">{acc.name}</p>
-                            <p className="text-xs text-slate-500 font-normal truncate">{acc.email}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      ))}
 
-                    {/* Use Another Account */}
-                    {!showAddGoogleAccount ? (
+                      {/* Use Another Account */}
                       <button
                         type="button"
                         onClick={() => setShowAddGoogleAccount(true)}
@@ -738,42 +727,63 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                         </div>
                         <span>Use another account</span>
                       </button>
-                    ) : (
-                      <div className="p-3.5 bg-slate-50 rounded-xl space-y-2.5 border border-slate-200 my-2">
-                        <p className="text-xs font-semibold text-slate-800">Enter your Google email:</p>
+                    </div>
+                  ) : (
+                    /* Enter Email View */
+                    <div className="space-y-4 my-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-700">Google Email address</label>
                         <input
                           type="email"
-                          placeholder="your.email@gmail.com"
+                          placeholder="Email or phone"
                           value={customGoogleEmail}
                           onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-white border border-slate-300 text-slate-900 text-xs rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                        />
-                        <div className="flex gap-2 justify-end">
-                          <button
-                            type="button"
-                            onClick={() => setShowAddGoogleAccount(false)}
-                            className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
                               if (customGoogleEmail.trim() && customGoogleEmail.includes('@')) {
                                 const typedName = customGoogleEmail.split('@')[0];
                                 setGoogleConsentAccount({ name: typedName, email: customGoogleEmail.trim() });
                               } else {
                                 setError('Please enter a valid Google email.');
                               }
-                            }}
-                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg shadow-xs cursor-pointer"
-                          >
-                            Next
-                          </button>
-                        </div>
+                            }
+                          }}
+                          className="w-full px-4 py-3 bg-white border border-slate-300 text-slate-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 focus:outline-none transition-all shadow-xs"
+                          autoFocus
+                        />
                       </div>
-                    )}
-                  </div>
+
+                      <div className="flex items-center justify-between pt-2">
+                        {getGoogleAccountsList().length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddGoogleAccount(false)}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                          >
+                            Back to saved accounts
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-500 font-medium">Forgot email?</span>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (customGoogleEmail.trim() && customGoogleEmail.includes('@')) {
+                              const typedName = customGoogleEmail.split('@')[0];
+                              setGoogleConsentAccount({ name: typedName, email: customGoogleEmail.trim() });
+                            } else {
+                              setError('Please enter a valid Google email address.');
+                            }
+                          }}
+                          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 cursor-pointer transition-all"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Footer links matching standard Google Popup */}
                   <div className="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
