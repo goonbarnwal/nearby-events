@@ -670,18 +670,61 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
               </button>
             </div>
             {error.includes('redirect_uri_mismatch') && (
-              <div className="mt-1 p-2.5 rounded-xl bg-slate-950 text-slate-200 border border-slate-800 font-mono text-[11px] flex items-center justify-between gap-2">
-                <span className="truncate select-all">{`${window.location.origin}/auth/google/callback`}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/auth/google/callback`);
-                    alert('Redirect URI copied to clipboard!');
-                  }}
-                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-sans font-bold shrink-0 cursor-pointer transition-colors"
-                >
-                  Copy URI
-                </button>
+              <div className="mt-1 p-3 rounded-xl bg-slate-950 text-slate-200 border border-slate-800 font-mono text-[11px] flex flex-col gap-2">
+                <div className="text-[10px] font-sans font-semibold text-slate-400 uppercase tracking-wider">
+                  Add both URIs to Google Cloud Console (Authorised redirect URIs):
+                </div>
+                <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                  <span className="truncate select-all">{`${window.location.origin}/auth/google/callback`}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/auth/google/callback`);
+                      alert('Current Redirect URI copied!');
+                    }}
+                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-sans font-bold shrink-0 cursor-pointer transition-colors"
+                  >
+                    Copy Current
+                  </button>
+                </div>
+                {window.location.origin.includes('ais-dev-') && (
+                  <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                    <span className="truncate select-all">
+                      {window.location.origin.replace('ais-dev-', 'ais-pre-')}/auth/google/callback
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `${window.location.origin.replace('ais-dev-', 'ais-pre-')}/auth/google/callback`
+                        );
+                        alert('Preview Redirect URI copied!');
+                      }}
+                      className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-[10px] font-sans font-bold shrink-0 cursor-pointer transition-colors"
+                    >
+                      Copy Preview
+                    </button>
+                  </div>
+                )}
+                {window.location.origin.includes('ais-pre-') && (
+                  <div className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                    <span className="truncate select-all">
+                      {window.location.origin.replace('ais-pre-', 'ais-dev-')}/auth/google/callback
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(
+                          `${window.location.origin.replace('ais-pre-', 'ais-dev-')}/auth/google/callback`
+                        );
+                        alert('Dev Redirect URI copied!');
+                      }}
+                      className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-[10px] font-sans font-bold shrink-0 cursor-pointer transition-colors"
+                    >
+                      Copy Dev
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
