@@ -117,7 +117,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
       if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS') {
         const { idToken, accessToken, code, error: popupErr } = event.data;
         if (popupErr) {
-          setError(`Google sign-in cancelled or failed: ${popupErr}`);
+          if (popupErr.includes('redirect_uri_mismatch')) {
+            setError(
+              `Google OAuth Error (redirect_uri_mismatch): Please add "${window.location.origin}/auth/google/callback" to Authorized Redirect URIs in your Google Cloud Console Credentials.`
+            );
+          } else {
+            setError(`Google sign-in cancelled or failed: ${popupErr}`);
+          }
           setLoading(false);
           return;
         }
@@ -655,12 +661,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
         {/* Global Error Banner */}
         {error && !toast && (
-          <div className="mx-6 mt-2 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs flex items-start gap-2.5 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-            <div className="flex-1 font-medium">{error}</div>
-            <button onClick={() => setError(null)} className="opacity-60 hover:opacity-100">
-              <X className="w-3.5 h-3.5" />
-            </button>
+          <div className="mx-6 mt-2 p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 text-xs flex flex-col gap-2.5 animate-in fade-in">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1 font-medium leading-relaxed">{error}</div>
+              <button onClick={() => setError(null)} className="opacity-60 hover:opacity-100">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {error.includes('redirect_uri_mismatch') && (
+              <div className="mt-1 p-2.5 rounded-xl bg-slate-950 text-slate-200 border border-slate-800 font-mono text-[11px] flex items-center justify-between gap-2">
+                <span className="truncate select-all">{`${window.location.origin}/auth/google/callback`}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/auth/google/callback`);
+                    alert('Redirect URI copied to clipboard!');
+                  }}
+                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-sans font-bold shrink-0 cursor-pointer transition-colors"
+                >
+                  Copy URI
+                </button>
+              </div>
+            )}
           </div>
         )}
 
