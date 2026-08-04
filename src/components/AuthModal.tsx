@@ -73,6 +73,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
   const [showGooglePicker, setShowGooglePicker] = useState(false);
   const [customGoogleName, setCustomGoogleName] = useState('');
   const [customGoogleEmail, setCustomGoogleEmail] = useState('');
+  const [googleConsentAccount, setGoogleConsentAccount] = useState<{ name: string; email: string } | null>(null);
+  const [showAddGoogleAccount, setShowAddGoogleAccount] = useState(false);
 
   // Forgot Password / OTP states
   const [resetStep, setResetStep] = useState<'request' | 'verify'>('request');
@@ -265,12 +267,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   // Handle GitHub Login
   const handleGithubLogin = async () => {
+    if (!email.trim() && !customGoogleEmail.trim()) {
+      setGoogleConsentAccount(null);
+      setShowGooglePicker(true);
+      return;
+    }
+    const targetEmail = email.trim() || customGoogleEmail.trim();
+    const targetName = name.trim() || targetEmail.split('@')[0] || 'GitHub Developer';
+
     setLoading(true);
     setError(null);
     try {
       const res = await githubAuthUser({
-        name: name.trim() || 'GitHub Developer',
-        email: email.trim() || 'developer@github.com',
+        name: targetName,
+        email: targetEmail,
       });
       if (res.token) localStorage.setItem('nearevent_jwt', res.token);
       saveUserToLocal({ name: res.user.name, email: res.user.email });
@@ -293,12 +303,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   // Handle Apple Login
   const handleAppleLogin = async () => {
+    if (!email.trim() && !customGoogleEmail.trim()) {
+      setGoogleConsentAccount(null);
+      setShowGooglePicker(true);
+      return;
+    }
+    const targetEmail = email.trim() || customGoogleEmail.trim();
+    const targetName = name.trim() || targetEmail.split('@')[0] || 'Apple User';
+
     setLoading(true);
     setError(null);
     try {
       const res = await appleAuthUser({
-        name: name.trim() || 'Apple User',
-        email: email.trim() || 'user@icloud.com',
+        name: targetName,
+        email: targetEmail,
       });
       if (res.token) localStorage.setItem('nearevent_jwt', res.token);
       saveUserToLocal({ name: res.user.name, email: res.user.email });
@@ -306,7 +324,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
       setToast({
         type: 'success',
         message: 'Apple Sign-In Successful',
-        subText: `Authenticated with Apple ID`,
+        subText: `Authenticated with Apple ID (${targetEmail})`,
       });
 
       setTimeout(() => {
@@ -321,12 +339,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   // Handle Facebook Login
   const handleFacebookLogin = async () => {
+    if (!email.trim() && !customGoogleEmail.trim()) {
+      setGoogleConsentAccount(null);
+      setShowGooglePicker(true);
+      return;
+    }
+    const targetEmail = email.trim() || customGoogleEmail.trim();
+    const targetName = name.trim() || targetEmail.split('@')[0] || 'Facebook User';
+
     setLoading(true);
     setError(null);
     try {
       const res = await googleAuthUser({
-        name: name.trim() || 'Facebook User',
-        email: email.trim() || 'user.fb@facebook.com',
+        name: targetName,
+        email: targetEmail,
       });
       if (res.token) localStorage.setItem('nearevent_jwt', res.token);
       saveUserToLocal({ name: res.user.name, email: res.user.email });
@@ -334,7 +360,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
       setToast({
         type: 'success',
         message: 'Facebook Sign-In Successful',
-        subText: `Connected via Facebook`,
+        subText: `Connected via Facebook (${targetEmail})`,
       });
 
       setTimeout(() => {
@@ -637,13 +663,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                 <button
                   type="button"
                   onClick={() => {
-                    if (email.trim() && email.includes('@')) {
-                      handleExecuteGoogleLogin(name.trim() || email.split('@')[0], email.trim());
-                    } else {
-                      setCustomGoogleEmail('');
-                      setCustomGoogleName('');
-                      setShowGooglePicker(true);
-                    }
+                    setCustomGoogleEmail(email.trim() || '');
+                    setGoogleConsentAccount(null);
+                    setShowGooglePicker(true);
                   }}
                   disabled={loading}
                   className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
@@ -829,7 +851,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
               <div className="space-y-2.5">
                 <button
                   type="button"
-                  onClick={() => setShowGooglePicker(true)}
+                  onClick={() => {
+                    setCustomGoogleEmail(email.trim() || '');
+                    setGoogleConsentAccount(null);
+                    setShowGooglePicker(true);
+                  }}
                   className="w-full py-3 px-4 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm font-semibold rounded-full transition-all flex items-center justify-center gap-3 cursor-pointer shadow-2xs hover:border-slate-400"
                 >
                   <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
