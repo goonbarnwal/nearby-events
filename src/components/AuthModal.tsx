@@ -109,6 +109,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     }
   };
 
+  // Format Name helper to convert raw email handles to proper Full Names
+  const formatName = (nameStr?: string, emailStr?: string): string => {
+    const cleanEmail = (emailStr || '').trim().toLowerCase();
+    if (cleanEmail === 'barnwalgoon@gmail.com') {
+      return 'Goonjan Barnwal';
+    }
+    let cleanName = (nameStr || '').trim();
+    if (!cleanName || cleanName.toLowerCase() === cleanEmail.split('@')[0].toLowerCase() || cleanName.includes('@')) {
+      if (cleanEmail) {
+        const parts = cleanEmail.split('@')[0].split(/[._-]/);
+        cleanName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+      }
+    }
+    return cleanName || 'Goonjan Barnwal';
+  };
+
   const getGoogleAccountsList = (): Array<{ name: string; email: string; avatarBg: string }> => {
     const list: Array<{ name: string; email: string; avatarBg: string }> = [];
     try {
@@ -119,7 +135,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
           parsed.forEach((item: any) => {
             if (item && item.email) {
               list.push({
-                name: item.name || item.email.split('@')[0],
+                name: formatName(item.name, item.email),
                 email: item.email,
                 avatarBg: item.avatarBg || 'bg-purple-600',
               });
@@ -134,7 +150,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     const savedUser = getSavedUser();
     if (savedUser && savedUser.email && !list.some(a => a.email.toLowerCase() === savedUser.email.toLowerCase())) {
       list.unshift({
-        name: savedUser.name || savedUser.email.split('@')[0],
+        name: formatName(savedUser.name, savedUser.email),
         email: savedUser.email,
         avatarBg: 'bg-emerald-600',
       });
@@ -145,18 +161,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   const saveGoogleAccount = (acc: { name: string; email: string }) => {
     try {
+      const formatted = { name: formatName(acc.name, acc.email), email: acc.email };
       const raw = localStorage.getItem('nearevent_google_accounts');
       let list: Array<{ name: string; email: string; avatarBg: string }> = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(list)) list = [];
-      const idx = list.findIndex(a => a.email.toLowerCase() === acc.email.toLowerCase());
+      const idx = list.findIndex(a => a.email.toLowerCase() === formatted.email.toLowerCase());
       if (idx >= 0) {
-        list[idx] = { ...list[idx], name: acc.name };
+        list[idx] = { ...list[idx], name: formatted.name };
       } else {
         const bgColors = ['bg-purple-600', 'bg-blue-600', 'bg-emerald-600', 'bg-indigo-600'];
         const randomBg = bgColors[list.length % bgColors.length];
         list.unshift({
-          name: acc.name,
-          email: acc.email,
+          name: formatted.name,
+          email: formatted.email,
           avatarBg: randomBg,
         });
       }
@@ -168,7 +185,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   const saveUserToLocal = (u: { name: string; email: string }) => {
     try {
-      localStorage.setItem('nearevent_saved_user', JSON.stringify(u));
+      const formatted = { name: formatName(u.name, u.email), email: u.email };
+      localStorage.setItem('nearevent_saved_user', JSON.stringify(formatted));
     } catch (e) {
       console.warn('Failed to save user profile:', e);
     }
@@ -543,8 +561,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto backdrop-blur-md bg-slate-950/60 animate-in fade-in duration-200">
-      <div className={`relative w-full max-w-md overflow-hidden transition-all my-auto bg-white text-slate-900 shadow-2xl border border-slate-200 ${
-        showGooglePicker ? 'rounded-2xl p-6 sm:p-7' : 'rounded-[28px] p-0'
+      <div className={`relative w-full max-w-md overflow-hidden transition-all my-auto shadow-2xl ${
+        showGooglePicker
+          ? 'bg-white text-slate-900 rounded-2xl border border-slate-200 p-6 sm:p-7'
+          : 'bg-slate-900 text-white rounded-[28px] border border-slate-800 p-0'
       }`}>
         
         {/* Header Bar for regular auth modal */}
@@ -1451,12 +1471,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         </div>
 
         {/* Modal Footer Security Badge */}
-        <div className="px-6 py-3 bg-slate-50/80 dark:bg-slate-950/50 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-          <span className="flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3 text-emerald-500" /> 256-bit SSL Encrypted & JWT Secured
-          </span>
-          <span>NearEvent v2.5</span>
-        </div>
+        {!showGooglePicker && (
+          <div className="px-6 py-3 bg-slate-950/80 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3 text-emerald-400" /> 256-bit SSL Encrypted & JWT Secured
+            </span>
+            <span>NearEvent v2.5</span>
+          </div>
+        )}
 
       </div>
     </div>

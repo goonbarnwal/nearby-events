@@ -12,6 +12,21 @@ interface HeaderProps {
   onTriggerSearchFocus: () => void;
 }
 
+const formatDisplayName = (nameStr?: string, emailStr?: string): string => {
+  const cleanEmail = (emailStr || '').trim().toLowerCase();
+  if (cleanEmail === 'barnwalgoon@gmail.com') {
+    return 'Goonjan Barnwal';
+  }
+  let cleanName = (nameStr || '').trim();
+  if (!cleanName || cleanName.toLowerCase() === cleanEmail.split('@')[0].toLowerCase() || cleanName.includes('@')) {
+    if (cleanEmail) {
+      const parts = cleanEmail.split('@')[0].split(/[._-]/);
+      cleanName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+    }
+  }
+  return cleanName || 'Goonjan Barnwal';
+};
+
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
@@ -22,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   onTriggerSearchFocus,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const displayName = user ? formatDisplayName(user.name, user.email) : '';
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-xs">
@@ -130,10 +146,10 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
                 )}
                 <div className={`flex items-center gap-2 ${user.role === 'admin' ? 'pl-2 border-l border-slate-200' : ''}`}>
-                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
-                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                    {displayName.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-xs font-semibold text-slate-800 max-w-[120px] truncate">{user.name}</span>
+                  <span className="text-xs font-bold text-slate-900 max-w-[140px] truncate">{displayName}</span>
                   <button
                     onClick={onLogout}
                     className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-50"
@@ -225,7 +241,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
             {user ? (
               <div className="flex items-center justify-between w-full">
-                <span className="text-sm font-bold text-slate-800">{user.name}</span>
+                <span className="text-sm font-bold text-slate-800">{displayName}</span>
                 <button
                   onClick={onLogout}
                   className="px-3 py-1.5 text-xs text-red-600 bg-red-50 rounded-lg font-medium"

@@ -473,12 +473,28 @@ async function startServer() {
     }
   });
 
+  // Helper: Format Name to prevent raw email handles from showing
+  function formatName(nameStr?: string, emailStr?: string): string {
+    const cleanEmail = (emailStr || '').trim().toLowerCase();
+    if (cleanEmail === 'barnwalgoon@gmail.com') {
+      return 'Goonjan Barnwal';
+    }
+    let cleanName = (nameStr || '').trim();
+    if (!cleanName || cleanName.toLowerCase() === cleanEmail.split('@')[0].toLowerCase() || cleanName.includes('@')) {
+      if (cleanEmail) {
+        const parts = cleanEmail.split('@')[0].split(/[._-]/);
+        cleanName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+      }
+    }
+    return cleanName || 'Goonjan Barnwal';
+  }
+
   // Google OAuth Auth Endpoint
   app.post('/api/auth/google', async (req, res) => {
     try {
       const { name: googleName, email: googleEmail } = req.body;
       const cleanEmail = (googleEmail || 'user@nearevent.app').trim().toLowerCase();
-      const cleanName = (googleName || 'Community User').trim();
+      const cleanName = formatName(googleName, cleanEmail);
 
       let userObj: any;
       if (isMongoConnected) {
