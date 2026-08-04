@@ -629,32 +629,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
                   {/* Account List Items */}
                   <div className="space-y-2 border-t border-b border-slate-100 dark:border-slate-800/80 py-2">
-                    {[
-                      { name: 'Anurag Bhardwaj', email: 'anuragbhar8111@gmail.com', bg: 'bg-purple-600' },
-                      { name: 'Goonjan Barnwal', email: 'barnwalgoon@gmail.com', bg: 'bg-emerald-600' },
-                      { name: 'Rahul Sharma', email: 'rahul.sharma@gmail.com', bg: 'bg-blue-600' },
-                      ...(savedUser ? [{ name: savedUser.name, email: savedUser.email, bg: 'bg-indigo-600' }] : []),
-                    ].map((acc, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setGoogleConsentAccount({ name: acc.name, email: acc.email })}
-                        className="w-full p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-2xl flex items-center justify-between transition-all group text-left cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-full ${acc.bg} text-white font-extrabold flex items-center justify-center text-sm shadow-xs shrink-0`}>
-                            {acc.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="truncate">
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 transition-colors">{acc.name}</p>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{acc.email}</p>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
+                    {(() => {
+                      // Dynamically collect real accounts (saved user or entered email)
+                      const realAccounts: Array<{ name: string; email: string; bg: string }> = [];
+                      if (savedUser && savedUser.email) {
+                        realAccounts.push({
+                          name: savedUser.name || savedUser.email.split('@')[0],
+                          email: savedUser.email,
+                          bg: 'bg-indigo-600',
+                        });
+                      }
+                      if (customGoogleEmail && customGoogleEmail.includes('@') && !realAccounts.some(a => a.email === customGoogleEmail)) {
+                        realAccounts.push({
+                          name: customGoogleEmail.split('@')[0],
+                          email: customGoogleEmail,
+                          bg: 'bg-blue-600',
+                        });
+                      }
 
-                    {/* Use Another Account */}
-                    {!showAddGoogleAccount ? (
+                      if (realAccounts.length > 0) {
+                        return realAccounts.map((acc, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setGoogleConsentAccount({ name: acc.name, email: acc.email })}
+                            className="w-full p-3 hover:bg-slate-50 dark:hover:bg-slate-800/60 rounded-2xl flex items-center justify-between transition-all group text-left cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-full ${acc.bg} text-white font-extrabold flex items-center justify-center text-sm shadow-xs shrink-0`}>
+                                {acc.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="truncate">
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-blue-600 transition-colors">{acc.name}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{acc.email}</p>
+                              </div>
+                            </div>
+                          </button>
+                        ));
+                      }
+                      return null;
+                    })()}
+
+                    {/* Use Another Account / Enter Google Account */}
+                    {(!showAddGoogleAccount && (savedUser || customGoogleEmail)) ? (
                       <button
                         type="button"
                         onClick={() => setShowAddGoogleAccount(true)}
@@ -667,13 +684,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                       </button>
                     ) : (
                       <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-2 border border-slate-200 dark:border-slate-700">
-                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Enter Google Email:</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Enter your Google Email:</p>
                         <input
                           type="email"
                           placeholder="your.email@gmail.com"
                           value={customGoogleEmail}
                           onChange={(e) => setCustomGoogleEmail(e.target.value)}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                          className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs rounded-xl focus:ring-2 focus:ring-blue-600 focus:outline-none"
                         />
                         <button
                           type="button"
@@ -685,7 +702,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                               setError('Please enter a valid Google email.');
                             }
                           }}
-                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+                          className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
                         >
                           Next
                         </button>
