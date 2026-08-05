@@ -22,6 +22,7 @@ import {
 import L from 'leaflet';
 import { EventItem, User } from '../types';
 import { formatDateParts } from '../utils/distance';
+import { getCleanRegistrationUrl } from '../utils/urlSanitizer';
 import { generateAiSummary } from '../services/api';
 
 interface EventDetailsModalProps {
@@ -120,9 +121,7 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
       if (onOpenAuth) onOpenAuth();
       return;
     }
-    const targetUrl = event.registrationUrl
-      ? (event.registrationUrl.startsWith('http') ? event.registrationUrl : `https://${event.registrationUrl}`)
-      : 'https://near-event.app';
+    const targetUrl = getCleanRegistrationUrl(event.registrationUrl, event.category, event.title);
     window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -145,11 +144,7 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
 
   const googleDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${event.latitude},${event.longitude}`;
 
-  const formattedRegUrl = event.registrationUrl
-    ? event.registrationUrl.startsWith('http')
-      ? event.registrationUrl
-      : `https://${event.registrationUrl}`
-    : '#';
+  const formattedRegUrl = getCleanRegistrationUrl(event.registrationUrl, event.category, event.title);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">

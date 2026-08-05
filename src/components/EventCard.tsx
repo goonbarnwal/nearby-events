@@ -2,6 +2,7 @@ import React from 'react';
 import { Bookmark, Clock, MapPin, ExternalLink, Edit, Trash2 } from 'lucide-react';
 import { EventItem, User } from '../types';
 import { formatDateParts } from '../utils/distance';
+import { getCleanRegistrationUrl } from '../utils/urlSanitizer';
 
 interface EventCardProps {
   event: EventItem;
@@ -193,9 +194,7 @@ export const EventCard: React.FC<EventCardProps> = ({
                 if (onOpenAuth) onOpenAuth();
                 return;
               }
-              const targetUrl = event.registrationUrl
-                ? (event.registrationUrl.startsWith('http') ? event.registrationUrl : `https://${event.registrationUrl}`)
-                : 'https://near-event.app';
+              const targetUrl = getCleanRegistrationUrl(event.registrationUrl, event.category, event.title);
               window.open(targetUrl, '_blank', 'noopener,noreferrer');
             }}
             className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${

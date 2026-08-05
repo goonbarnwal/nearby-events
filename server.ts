@@ -289,6 +289,15 @@ async function startServer() {
           { upsert: true }
         );
       }
+
+      // Bulk sanitize any leftover event documents in MongoDB
+      const legacyEvts = await (EventModel.find() as any).lean();
+      for (const leg of legacyEvts) {
+        const cleanUrl = fixRegistrationUrl((leg as any).registrationUrl, (leg as any).title, (leg as any).category, (leg as any).city);
+        if (cleanUrl !== (leg as any).registrationUrl) {
+          await EventModel.updateOne({ _id: (leg as any)._id }, { $set: { registrationUrl: cleanUrl } });
+        }
+      }
     } catch (err) {
       console.warn('Seeding/Syncing MongoDB warning:', err);
     }
