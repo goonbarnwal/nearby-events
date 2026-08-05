@@ -72,20 +72,45 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
 
         {/* More Categories Dropdown Pill */}
         <div className="relative shrink-0">
-          <button
-            id="btn-category-more"
-            onClick={() => setMoreDropdownOpen(!moreDropdownOpen)}
-            aria-label="More categories dropdown"
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-white text-slate-700 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all whitespace-nowrap"
-          >
-            <span>More</span>
-            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${moreDropdownOpen ? 'rotate-180' : ''}`} />
-          </button>
+          {moreDropdownOpen && (
+            <div
+              className="fixed inset-0 z-20"
+              onClick={() => setMoreDropdownOpen(false)}
+            />
+          )}
+          
+          {(() => {
+            const isExtraSelected = extraCategories.some(
+              (c) => c.label.toLowerCase() === selectedCategory?.toLowerCase()
+            );
+
+            return (
+              <button
+                id="btn-category-more"
+                onClick={() => setMoreDropdownOpen(!moreDropdownOpen)}
+                aria-label="More categories dropdown"
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap border cursor-pointer ${
+                  isExtraSelected
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                <span>{isExtraSelected ? `More (${selectedCategory})` : 'More'}</span>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${
+                    isExtraSelected ? 'text-white' : 'text-slate-500'
+                  } ${moreDropdownOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+            );
+          })()}
 
           {moreDropdownOpen && (
             <div className="absolute left-0 mt-2 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl z-30 p-1.5 space-y-1">
               {extraCategories.map((cat) => {
                 const CatIcon = cat.icon;
+                const isSelected = selectedCategory?.toLowerCase() === cat.label.toLowerCase();
+
                 return (
                   <button
                     key={cat.label}
@@ -93,9 +118,13 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
                       onSelectCategory(cat.label);
                       setMoreDropdownOpen(false);
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors text-left"
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-xl transition-colors text-left cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-50 text-blue-700 font-bold'
+                        : 'text-slate-700 hover:bg-blue-50 hover:text-blue-600'
+                    }`}
                   >
-                    <CatIcon className="w-4 h-4 text-slate-500" />
+                    <CatIcon className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-500'}`} />
                     <span>{cat.label}</span>
                   </button>
                 );

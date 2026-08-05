@@ -1,5 +1,5 @@
-import React from 'react';
-import { Bookmark, Sparkles, ChevronRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bookmark, Sparkles, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { EventItem } from '../types';
 import { formatDateParts } from '../utils/distance';
 
@@ -26,7 +26,9 @@ export const SidebarWidgets: React.FC<SidebarWidgetsProps> = ({
   currentCity,
   currentCategory,
 }) => {
-  const popularCategories = [
+  const [showMoreCategories, setShowMoreCategories] = useState(false);
+
+  const mainCategories = [
     'Tech',
     'Hackathon',
     'Workshop',
@@ -34,8 +36,17 @@ export const SidebarWidgets: React.FC<SidebarWidgetsProps> = ({
     'Sports',
     'Business',
     'Food',
-    'More',
   ];
+
+  const extraCategories = [
+    'Comedy',
+    'Startup',
+    'Community',
+    'Exhibition',
+  ];
+
+  const isExtraActive = currentCategory && extraCategories.some(c => c.toLowerCase() === currentCategory.toLowerCase());
+  const isExpanded = showMoreCategories || isExtraActive;
 
   const popularCities = [
     'Pune',
@@ -50,23 +61,28 @@ export const SidebarWidgets: React.FC<SidebarWidgetsProps> = ({
       
       {/* Widget 1: Popular Categories */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs">
-        <h2 className="text-sm font-extrabold text-slate-900 tracking-tight mb-3">
-          Popular Categories
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-extrabold text-slate-900 tracking-tight">
+            Popular Categories
+          </h2>
+          {isExtraActive && (
+            <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+              {currentCategory}
+            </span>
+          )}
+        </div>
 
         <div className="divide-y divide-slate-100">
-          {popularCategories.map((cat) => {
+          {mainCategories.map((cat) => {
             const isCatActive =
-              currentCategory &&
-              (currentCategory.toLowerCase() === cat.toLowerCase() ||
-                (cat === 'More' && currentCategory === 'All'));
+              currentCategory && currentCategory.toLowerCase() === cat.toLowerCase();
 
             return (
               <button
                 key={cat}
                 id={`cat-link-${cat.toLowerCase()}`}
-                onClick={() => onSelectCategory && onSelectCategory(cat === 'More' ? 'All' : cat)}
-                className={`w-full flex items-center justify-between py-2.5 text-xs sm:text-sm font-medium px-2 rounded-lg transition-colors text-left group ${
+                onClick={() => onSelectCategory && onSelectCategory(cat)}
+                className={`w-full flex items-center justify-between py-2.5 text-xs sm:text-sm font-medium px-2 rounded-lg transition-colors text-left group cursor-pointer ${
                   isCatActive
                     ? 'bg-blue-50 text-blue-700 font-bold'
                     : 'text-slate-700 hover:text-blue-600 hover:bg-slate-50/80'
@@ -77,6 +93,48 @@ export const SidebarWidgets: React.FC<SidebarWidgetsProps> = ({
               </button>
             );
           })}
+
+          {/* Expanded Extra Categories */}
+          {isExpanded && extraCategories.map((cat) => {
+            const isCatActive =
+              currentCategory && currentCategory.toLowerCase() === cat.toLowerCase();
+
+            return (
+              <button
+                key={cat}
+                id={`cat-link-${cat.toLowerCase()}`}
+                onClick={() => onSelectCategory && onSelectCategory(cat)}
+                className={`w-full flex items-center justify-between py-2.5 text-xs sm:text-sm font-medium px-2 rounded-lg transition-colors text-left group cursor-pointer ${
+                  isCatActive
+                    ? 'bg-blue-50 text-blue-700 font-bold'
+                    : 'text-slate-700 hover:text-blue-600 hover:bg-slate-50/80'
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                  <span>{cat}</span>
+                </div>
+                <ChevronRight className={`w-4 h-4 transition-all ${isCatActive ? 'text-blue-600 translate-x-0.5' : 'text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5'}`} />
+              </button>
+            );
+          })}
+
+          {/* Toggle More / Less Categories Button */}
+          <button
+            type="button"
+            id="cat-link-more"
+            onClick={() => setShowMoreCategories(!showMoreCategories)}
+            className={`w-full flex items-center justify-between py-2.5 text-xs sm:text-sm font-semibold px-2 rounded-lg transition-colors text-left cursor-pointer ${
+              isExpanded ? 'text-blue-600 hover:bg-blue-50/50' : 'text-blue-600 hover:bg-slate-50'
+            }`}
+          >
+            <span>{isExpanded ? 'Show Less' : 'More'}</span>
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4 text-blue-600" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-blue-600" />
+            )}
+          </button>
         </div>
       </div>
 
