@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { HeroSearch } from './components/HeroSearch';
+import { CategoryPills } from './components/CategoryPills';
 import { EventCard } from './components/EventCard';
 import { SidebarWidgets } from './components/SidebarWidgets';
 import { EventDetailsModal } from './components/EventDetailsModal';
