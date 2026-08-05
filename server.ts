@@ -62,35 +62,29 @@ const EventSchema = new mongoose.Schema(
 function fixRegistrationUrl(url?: string, title?: string, category?: string, city?: string): string {
   const cleanUrl = url ? url.trim() : '';
   const titleClean = title || 'event';
-  const cityClean = (city || 'pune').trim().toLowerCase();
-  let citySlug = cityClean.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  
-  if (!citySlug || citySlug === 'india') {
-    citySlug = 'pune';
-  } else if (citySlug === 'bangalore') {
-    citySlug = 'bengaluru';
-  } else if (citySlug.includes('delhi') || citySlug.includes('noida') || citySlug.includes('gurgaon')) {
-    citySlug = 'ncr';
-  }
 
-  // Check if it's a known safe active portal link
+  // Check if it's a known safe active platform link
   if (cleanUrl && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
-    const isSafePlatform =
-      cleanUrl.includes('devfolio.co') ||
-      cleanUrl.includes('meetup.com') ||
-      cleanUrl.includes('eventbrite.com') ||
-      cleanUrl.includes('lu.ma') ||
-      cleanUrl.includes('luma.com') ||
-      cleanUrl.includes('bookmyshow.com/explore/');
-
     const isUnsafeOrDead =
+      cleanUrl.includes('bookmyshow') ||
       cleanUrl.includes('unstop') ||
       cleanUrl.includes('insider.in') ||
       cleanUrl.includes('thegrubfest') ||
       cleanUrl.includes('bharatdrone') ||
-      /bookmyshow\.com\/events\//i.test(cleanUrl);
+      cleanUrl.includes('/find/tech/') ||
+      cleanUrl.includes('india--delhi');
 
-    if (isSafePlatform && !isUnsafeOrDead) {
+    const isSafePlatform =
+      (cleanUrl.includes('devfolio.co') ||
+      cleanUrl.includes('meetup.com') ||
+      cleanUrl.includes('eventbrite.in') ||
+      cleanUrl.includes('eventbrite.com') ||
+      cleanUrl.includes('lu.ma') ||
+      cleanUrl.includes('luma.com') ||
+      cleanUrl.includes('paytm.com/events')) &&
+      !isUnsafeOrDead;
+
+    if (isSafePlatform) {
       return cleanUrl;
     }
   }
@@ -104,33 +98,28 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
     return 'https://devfolio.co/hackathons';
   }
 
-  // 2. Music, Concerts, Comedy, Shows
-  if (catLower.includes('music') || catLower.includes('concert') || catLower.includes('comedy') || catLower.includes('standup') || catLower.includes('show')) {
-    if (catLower.includes('comedy') || titleLower.includes('comedy')) {
-      return `https://in.bookmyshow.com/explore/comedy-shows-${citySlug}`;
-    }
-    if (catLower.includes('music') || catLower.includes('concert') || titleLower.includes('symphony') || titleLower.includes('acoustic')) {
-      return `https://in.bookmyshow.com/explore/music-shows-${citySlug}`;
-    }
-    return `https://in.bookmyshow.com/explore/events-${citySlug}`;
+  // 2. Music, Concerts, Comedy, Shows, Food, Sports, Festivals
+  if (
+    catLower.includes('music') ||
+    catLower.includes('concert') ||
+    catLower.includes('comedy') ||
+    catLower.includes('standup') ||
+    catLower.includes('show') ||
+    catLower.includes('food') ||
+    catLower.includes('culinary') ||
+    catLower.includes('festival') ||
+    catLower.includes('sports') ||
+    catLower.includes('fitness') ||
+    catLower.includes('marathon') ||
+    titleLower.includes('comedy') ||
+    titleLower.includes('music') ||
+    titleLower.includes('food')
+  ) {
+    return 'https://www.eventbrite.in';
   }
 
-  // 3. Sports & Fitness
-  if (catLower.includes('sports') || catLower.includes('cricket') || catLower.includes('fitness') || catLower.includes('marathon')) {
-    return `https://in.bookmyshow.com/explore/sports-${citySlug}`;
-  }
-
-  // 4. Food, Festivals, Culinary
-  if (catLower.includes('food') || catLower.includes('festival') || catLower.includes('culinary')) {
-    return `https://in.bookmyshow.com/explore/food-drinks-${citySlug}`;
-  }
-
-  // 5. Tech, Startup, Meetup, Business, Workshop
-  if (catLower.includes('tech') || catLower.includes('meetup') || catLower.includes('business') || catLower.includes('startup') || catLower.includes('workshop')) {
-    return 'https://www.meetup.com/find/tech/';
-  }
-
-  return `https://in.bookmyshow.com/explore/events-${citySlug}`;
+  // 3. Tech, Startup, Meetup, Business, Workshop
+  return 'https://www.meetup.com/find/';
 }
 
 const UserModel = mongoose.models.User || mongoose.model('User', UserSchema);
@@ -259,9 +248,9 @@ async function startServer() {
       await EventModel.deleteMany({
         $or: [
           { eventId: { $nin: currentIds }, source: { $in: ['database', 'api', undefined] } },
-          { title: { $regex: /arijit|mindspark|untitled event|unstop/i } },
-          { registrationUrl: { $regex: /unstop/i } },
-          { organizer: { $regex: /unstop/i } },
+          { title: { $regex: /arijit|mindspark|untitled event|unstop|bookmyshow/i } },
+          { registrationUrl: { $regex: /unstop|bookmyshow|thegrubfest|bharatdrone/i } },
+          { organizer: { $regex: /unstop|bookmyshow/i } },
           { source: 'user', title: { $regex: /untitled/i } },
         ],
       });
@@ -290,7 +279,7 @@ async function startServer() {
               organizer: e.organizer,
               price: e.price,
               currency: e.currency,
-              registrationUrl: e.registrationUrl,
+              registrationUrl: fixRegistrationUrl(e.registrationUrl, e.title, e.category, e.city),
               imageUrl: e.imageUrl,
               status: 'approved',
               source: e.source || 'Official',
