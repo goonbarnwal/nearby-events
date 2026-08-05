@@ -12,8 +12,17 @@ interface MapViewProps {
 export const MapView: React.FC<MapViewProps> = ({ events, userLocation, onViewDetails }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<{ [id: string]: L.Marker }>({});
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(events[0] || null);
 
+  // Synchronize initial selected event if current one is not in events list
+  useEffect(() => {
+    if (events.length > 0 && (!selectedEvent || !events.find(e => e.id === selectedEvent.id))) {
+      setSelectedEvent(events[0]);
+    }
+  }, [events]);
+
+  // Map initialization - Runs once on mount or when userLocation dramatically changes
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
@@ -27,7 +36,8 @@ export const MapView: React.FC<MapViewProps> = ({ events, userLocation, onViewDe
 
     const map = L.map(mapContainerRef.current, {
       center: [initialLat, initialLon],
-      zoom: 12,
+      zoom: 11,
+      scrollWheelZoom: true,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -35,33 +45,73 @@ export const MapView: React.FC<MapViewProps> = ({ events, userLocation, onViewDe
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
-    // Add Markers for events
-    events.forEach((evt) => {
-      const customIcon = L.divIcon({
-        className: 'custom-event-pin',
-        html: `<div style="background-color: ${
-          selectedEvent?.id === evt.id ? '#1d4ed8' : '#2563eb'
-        }; width: 32px; height: 32px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: justify-center; cursor: pointer;"><div style="background-color: white; width: 10px; height: 10px; border-radius: 50%; margin: auto;"></div></div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
-
-      const marker = L.marker([evt.latitude, evt.longitude], { icon: customIcon }).addTo(map);
-
-      marker.on('click', () => {
-        setSelectedEvent(evt);
-      });
-    });
-
     mapInstanceRef.current = map;
 
+    // Trigger map container resize calculation after mount
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+
     return () => {
+      clearTimeout(timer);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
     };
-  }, [events, userLocation, selectedEvent?.id]);
+  }, [userLocation.latitude, userLocation.longitude]);
+
+  // Update Markers whenever events or selectedEvent changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Clear existing markers
+    (Object.values(markersRef.current) as L.Marker[]).forEach((m) => m.remove());
+    markersRef.current = {};
+
+    if (events.length === 0) return;
+
+    const bounds = L.latLngBounds([]);
+
+    events.forEach((evt) => {
+      if (evt.latitude && evt.longitude) {
+        const isSelected = selectedEvent?.id === evt.id;
+
+        const customIcon = L.divIcon({
+          className: 'custom-event-pin',
+          html: `<div style="background-color: ${
+            isSelected ? '#1d4ed8' : '#2563eb'
+          }; width: ${isSelected ? '36px' : '28px'}; height: ${
+            isSelected ? '36px' : '28px'
+          }; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease;"><div style="background-color: white; width: ${
+            isSelected ? '12px' : '8px'
+          }; height: ${
+            isSelected ? '12px' : '8px'
+          }; border-radius: 50%;"></div></div>`,
+          iconSize: [isSelected ? 36 : 28, isSelected ? 36 : 28],
+          iconAnchor: [isSelected ? 18 : 14, isSelected ? 18 : 14],
+        });
+
+        const marker = L.marker([evt.latitude, evt.longitude], { icon: customIcon }).addTo(map);
+
+        marker.on('click', () => {
+          setSelectedEvent(evt);
+          map.panTo([evt.latitude, evt.longitude], { animate: true });
+        });
+
+        markersRef.current[evt.id] = marker;
+        bounds.extend([evt.latitude, evt.longitude]);
+      }
+    });
+
+    // Optionally fit bounds if multiple events exist
+    if (events.length > 1 && bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    } else if (events.length === 1 && events[0].latitude) {
+      map.setView([events[0].latitude, events[0].longitude], 13);
+    }
+  }, [events, selectedEvent?.id]);
 
   return (
     <div className="py-6 space-y-4">
@@ -77,7 +127,7 @@ export const MapView: React.FC<MapViewProps> = ({ events, userLocation, onViewDe
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[600px] rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-sm">
         
         {/* Leaflet Map Canvas */}
-        <div className="lg:col-span-8 h-full relative">
+        <div className="lg:col-span-8 h-full relative min-h-[350px]">
           <div ref={mapContainerRef} className="w-full h-full z-10" />
         </div>
 
@@ -117,7 +167,7 @@ export const MapView: React.FC<MapViewProps> = ({ events, userLocation, onViewDe
                 <button
                   id={`btn-map-card-view-${selectedEvent.id}`}
                   onClick={() => onViewDetails(selectedEvent)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer"
                 >
                   View Details
                 </button>
@@ -133,7 +183,12 @@ export const MapView: React.FC<MapViewProps> = ({ events, userLocation, onViewDe
             {events.map((evt) => (
               <div
                 key={evt.id}
-                onClick={() => setSelectedEvent(evt)}
+                onClick={() => {
+                  setSelectedEvent(evt);
+                  if (mapInstanceRef.current && evt.latitude && evt.longitude) {
+                    mapInstanceRef.current.panTo([evt.latitude, evt.longitude], { animate: true });
+                  }
+                }}
                 className={`p-3 rounded-xl border text-xs cursor-pointer transition-all ${
                   selectedEvent?.id === evt.id
                     ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold'
@@ -151,3 +206,4 @@ export const MapView: React.FC<MapViewProps> = ({ events, userLocation, onViewDe
     </div>
   );
 };
+

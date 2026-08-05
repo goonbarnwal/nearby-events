@@ -334,9 +334,9 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             <button
               id="btn-modal-bookmark"
               onClick={() => onToggleBookmark(event.id)}
-              className={`sm:col-span-3 py-3 px-3 rounded-xl text-xs sm:text-sm font-semibold border transition-all flex items-center justify-center gap-1.5 ${
+              className={`sm:col-span-3 py-3 px-3 rounded-xl text-xs sm:text-sm font-semibold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 isBookmarked
-                  ? 'bg-blue-50 text-blue-600 border-blue-200'
+                  ? 'bg-blue-50 text-blue-600 border-blue-200 font-bold'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
             >
@@ -344,17 +344,19 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               <span>{isBookmarked ? 'Saved' : 'Save'}</span>
             </button>
 
-            <a
+            <button
               id="btn-modal-official-register"
-              href={formattedRegUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              type="button"
               onClick={handleRegisterClick}
-              className="sm:col-span-9 py-3 px-6 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+              className={`sm:col-span-9 py-3 px-6 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
+                isRegistered
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
+              }`}
             >
-              <span>{isRegistered ? '✓ Registered (Open Portal)' : 'Official Registration Link'}</span>
-              <ExternalLink className="w-4 h-4" />
-            </a>
+              <Ticket className="w-4 h-4" />
+              <span>{isRegistered ? '✓ Registered for Event (Saved in My Events)' : 'Register for Event'}</span>
+            </button>
           </div>
 
           </div>

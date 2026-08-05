@@ -4,9 +4,18 @@ import { Calendar, Compass, Shield, Heart, Github, Twitter, Linkedin, Mail, MapP
 interface FooterProps {
   onSelectCategory?: (category: string) => void;
   onOpenAuth?: () => void;
+  onOpenAbout?: () => void;
+  onOpenTerms?: () => void;
+  onOpenPrivacy?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onOpenAuth }) => {
+export const Footer: React.FC<FooterProps> = ({
+  onSelectCategory,
+  onOpenAuth,
+  onOpenAbout,
+  onOpenTerms,
+  onOpenPrivacy,
+}) => {
   return (
     <footer className="bg-slate-900 text-slate-300 pt-12 pb-8 border-t border-slate-800 mt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -26,20 +35,13 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onOpenAuth }) 
               Discover official hackathons, AI conferences, tech meetups, live music concerts, and business summits happening right around you across India.
             </p>
 
-            <div className="flex items-center gap-3 pt-2 text-slate-400">
-              <a href="#" className="p-2 bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg transition-colors">
-                <Twitter className="w-4 h-4" />
-              </a>
-              <a href="#" className="p-2 bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg transition-colors">
-                <Linkedin className="w-4 h-4" />
-              </a>
-              <a href="#" className="p-2 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-lg transition-colors">
-                <Github className="w-4 h-4" />
-              </a>
-              <a href="#" className="p-2 bg-slate-800 hover:bg-blue-600 hover:text-white rounded-lg transition-colors">
-                <Mail className="w-4 h-4" />
-              </a>
-            </div>
+            <button
+              id="btn-footer-about-us"
+              onClick={onOpenAbout}
+              className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline underline-offset-4 cursor-pointer block"
+            >
+              Learn More About NearEvent →
+            </button>
           </div>
 
           {/* Quick Categories */}
@@ -92,8 +94,27 @@ export const Footer: React.FC<FooterProps> = ({ onSelectCategory, onOpenAuth }) 
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
           <p>© {new Date().getFullYear()} NearEvent. Official Tech, Hackathon & Community Events Directory.</p>
           <div className="flex items-center gap-4">
-            <span className="hover:text-slate-400 cursor-pointer">Privacy Policy</span>
-            <span className="hover:text-slate-400 cursor-pointer">Terms of Service</span>
+            <button
+              id="btn-footer-about"
+              onClick={onOpenAbout}
+              className="hover:text-slate-300 cursor-pointer transition-colors"
+            >
+              About
+            </button>
+            <button
+              id="btn-footer-privacy"
+              onClick={onOpenPrivacy}
+              className="hover:text-slate-300 cursor-pointer transition-colors"
+            >
+              Privacy Policy
+            </button>
+            <button
+              id="btn-footer-terms"
+              onClick={onOpenTerms}
+              className="hover:text-slate-300 cursor-pointer transition-colors"
+            >
+              Terms of Service
+            </button>
             <span className="flex items-center gap-1 text-slate-400">
               Made with <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" /> in India
             </span>

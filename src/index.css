@@ -1,1 +1,15 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+/* Leaflet Map Custom Pin Styles */
+.custom-event-pin, .custom-pin {
+  background: transparent;
+  border: none;
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  font-family: inherit;
+  border-radius: inherit;
+}

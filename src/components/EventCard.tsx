@@ -180,7 +180,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             </button>
           )}
 
-          {/* Direct Official Registration Link Button */}
+          {/* In-App Registration / Details Button */}
           <button
             id={`btn-register-link-${event.id}`}
             onClick={(e) => {
@@ -189,20 +189,12 @@ export const EventCard: React.FC<EventCardProps> = ({
                 if (onOpenAuth) onOpenAuth();
                 return;
               }
-              if (event.registrationUrl) {
-                const targetUrl = event.registrationUrl.startsWith('http')
-                  ? event.registrationUrl
-                  : `https://${event.registrationUrl}`;
-                window.open(targetUrl, '_blank', 'noopener,noreferrer');
-              } else {
-                onViewDetails(event);
-              }
+              onViewDetails(event);
             }}
-            className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs"
+            className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
             title="Register for event"
           >
             <span>Register</span>
-            <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
 
           {/* Bookmark Icon Button */}

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { HeroSearch } from './components/HeroSearch';
-import { CategoryPills } from './components/CategoryPills';
 import { EventCard } from './components/EventCard';
 import { SidebarWidgets } from './components/SidebarWidgets';
 import { EventDetailsModal } from './components/EventDetailsModal';
@@ -11,6 +10,8 @@ import { MyEventsView } from './components/MyEventsView';
 import { AuthModal } from './components/AuthModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { AiRecommendationsModal } from './components/AiRecommendationsModal';
+import { AboutModal } from './components/AboutModal';
+import { TermsModal } from './components/TermsModal';
 import { Footer } from './components/Footer';
 import { EventItem, FilterState, UserLocation, User } from './types';
 import { INITIAL_EVENTS } from './data/mockEvents';
@@ -61,6 +62,9 @@ export default function App() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [aiRecsModalOpen, setAiRecsModalOpen] = useState(false);
+  const [aboutModalOpen, setAboutModalOpen] = useState(false);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [termsTab, setTermsTab] = useState<'terms' | 'privacy'>('terms');
 
   const handleOpenAuthWithMessage = (msg?: string) => {
     setAuthModalMessage(msg);
@@ -376,12 +380,6 @@ export default function App() {
               searchInputRef={searchInputRef}
             />
 
-            {/* Interactive Category Pills Bar */}
-            <CategoryPills
-              selectedCategory={filters.category}
-              onSelectCategory={handleSelectCategory}
-            />
-
             {/* 2-Column Grid Layout matching screenshot */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-4">
               
@@ -553,6 +551,15 @@ export default function App() {
       <Footer
         onSelectCategory={(cat) => setFilters((prev) => ({ ...prev, category: cat }))}
         onOpenAuth={() => setAuthModalOpen(true)}
+        onOpenAbout={() => setAboutModalOpen(true)}
+        onOpenTerms={() => {
+          setTermsTab('terms');
+          setTermsModalOpen(true);
+        }}
+        onOpenPrivacy={() => {
+          setTermsTab('privacy');
+          setTermsModalOpen(true);
+        }}
       />
 
       {/* MODALS */}
@@ -620,6 +627,19 @@ export default function App() {
           city={location.city}
           onClose={() => setAiRecsModalOpen(false)}
           onViewDetails={(evt) => setSelectedEvent(evt)}
+        />
+      )}
+
+      {aboutModalOpen && (
+        <AboutModal
+          onClose={() => setAboutModalOpen(false)}
+        />
+      )}
+
+      {termsModalOpen && (
+        <TermsModal
+          onClose={() => setTermsModalOpen(false)}
+          initialTab={termsTab}
         />
       )}
 
