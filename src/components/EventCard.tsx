@@ -184,7 +184,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             </button>
           )}
 
-          {/* Direct External Link Register Button (Requires Authentication) */}
+          {/* Direct External Link Button (Requires Authentication) */}
           <button
             id={`btn-register-link-${event.id}`}
             onClick={(e) => {
@@ -193,20 +193,17 @@ export const EventCard: React.FC<EventCardProps> = ({
                 if (onOpenAuth) onOpenAuth();
                 return;
               }
-              if (onRegister) {
-                onRegister(event.id);
-              }
               const targetUrl = event.registrationUrl
                 ? (event.registrationUrl.startsWith('http') ? event.registrationUrl : `https://${event.registrationUrl}`)
                 : 'https://near-event.app';
               window.open(targetUrl, '_blank', 'noopener,noreferrer');
             }}
-            className={`px-3.5 py-1.5 text-xs font-bold text-white rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${
               isRegistered
-                ? 'bg-emerald-600 hover:bg-emerald-700'
-                : 'bg-blue-600 hover:bg-blue-700'
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
-            title="Register for event & open link"
+            title="Open official event registration link"
           >
             <span>{isRegistered ? 'Registered ✓' : 'Register'}</span>
             <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />

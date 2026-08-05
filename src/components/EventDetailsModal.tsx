@@ -114,17 +114,25 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleRegisterClick = (e: React.MouseEvent) => {
+  const handleOpenLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!user) {
-      e.preventDefault();
       if (onOpenAuth) onOpenAuth();
       return;
     }
-    onRegister(event.id);
     const targetUrl = event.registrationUrl
       ? (event.registrationUrl.startsWith('http') ? event.registrationUrl : `https://${event.registrationUrl}`)
       : 'https://near-event.app';
     window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleToggleRegisteredStatus = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) {
+      if (onOpenAuth) onOpenAuth();
+      return;
+    }
+    onRegister(event.id);
   };
 
   const getGoogleCalendarUrl = () => {
@@ -349,17 +357,27 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
             </button>
 
             <button
-              id="btn-modal-official-register"
+              id="btn-modal-mark-registered"
               type="button"
-              onClick={handleRegisterClick}
-              className={`sm:col-span-9 py-3 px-6 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
+              onClick={handleToggleRegisteredStatus}
+              className={`sm:col-span-4 py-3 px-3 rounded-xl text-xs sm:text-sm font-semibold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 isRegistered
-                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 font-bold'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
+              title={isRegistered ? 'Click to unmark registration' : 'Mark as registered'}
             >
-              <Ticket className="w-4 h-4" />
-              <span>{isRegistered ? '✓ Registered (Open Link)' : 'Register & Open Official Link'}</span>
+              <Ticket className={`w-4 h-4 ${isRegistered ? 'text-emerald-600' : 'text-slate-500'}`} />
+              <span>{isRegistered ? '✓ Registered' : 'Mark Registered'}</span>
+            </button>
+
+            <button
+              id="btn-modal-open-link"
+              type="button"
+              onClick={handleOpenLink}
+              className="sm:col-span-5 py-3 px-4 text-xs sm:text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Open Link</span>
               <ExternalLink className="w-4 h-4 shrink-0" />
             </button>
           </div>
