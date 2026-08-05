@@ -8,6 +8,8 @@ interface EventCardProps {
   onViewDetails: (event: EventItem) => void;
   isBookmarked: boolean;
   onToggleBookmark: (eventId: string, e: React.MouseEvent) => void;
+  isRegistered?: boolean;
+  onRegister?: (eventId: string) => void;
   onEdit?: (event: EventItem) => void;
   onDelete?: (eventId: string) => void;
   showStatusBadge?: boolean;
@@ -20,6 +22,8 @@ export const EventCard: React.FC<EventCardProps> = ({
   onViewDetails,
   isBookmarked,
   onToggleBookmark,
+  isRegistered = false,
+  onRegister,
   onEdit,
   onDelete,
   showStatusBadge = false,
@@ -180,7 +184,7 @@ export const EventCard: React.FC<EventCardProps> = ({
             </button>
           )}
 
-          {/* In-App Registration / Details Button */}
+          {/* Direct External Link Register Button (Requires Authentication) */}
           <button
             id={`btn-register-link-${event.id}`}
             onClick={(e) => {
@@ -189,12 +193,23 @@ export const EventCard: React.FC<EventCardProps> = ({
                 if (onOpenAuth) onOpenAuth();
                 return;
               }
-              onViewDetails(event);
+              if (onRegister) {
+                onRegister(event.id);
+              }
+              const targetUrl = event.registrationUrl
+                ? (event.registrationUrl.startsWith('http') ? event.registrationUrl : `https://${event.registrationUrl}`)
+                : 'https://near-event.app';
+              window.open(targetUrl, '_blank', 'noopener,noreferrer');
             }}
-            className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-            title="Register for event"
+            className={`px-3.5 py-1.5 text-xs font-bold text-white rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer ${
+              isRegistered
+                ? 'bg-emerald-600 hover:bg-emerald-700'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
+            title="Register for event & open link"
           >
-            <span>Register</span>
+            <span>{isRegistered ? 'Registered ✓' : 'Register'}</span>
+            <ExternalLink className="w-3.5 h-3.5 stroke-[2.2]" />
           </button>
 
           {/* Bookmark Icon Button */}

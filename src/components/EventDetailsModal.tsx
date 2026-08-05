@@ -121,6 +121,10 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
       return;
     }
     onRegister(event.id);
+    const targetUrl = event.registrationUrl
+      ? (event.registrationUrl.startsWith('http') ? event.registrationUrl : `https://${event.registrationUrl}`)
+      : 'https://near-event.app';
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
   };
 
   const getGoogleCalendarUrl = () => {
@@ -355,7 +359,8 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               }`}
             >
               <Ticket className="w-4 h-4" />
-              <span>{isRegistered ? '✓ Registered for Event (Saved in My Events)' : 'Register for Event'}</span>
+              <span>{isRegistered ? '✓ Registered (Open Link)' : 'Register & Open Official Link'}</span>
+              <ExternalLink className="w-4 h-4 shrink-0" />
             </button>
           </div>
 

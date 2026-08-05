@@ -404,6 +404,8 @@ export default function App() {
                       onViewDetails={(evt) => setSelectedEvent(evt)}
                       isBookmarked={bookmarkedIds.includes(event.id)}
                       onToggleBookmark={handleToggleBookmark}
+                      isRegistered={registeredIds.includes(event.id)}
+                      onRegister={handleRegister}
                       user={user}
                       onOpenAuth={() => handleOpenAuthWithMessage('Please log in or create an account to register for events.')}
                     />
@@ -474,6 +476,8 @@ export default function App() {
                   onViewDetails={(evt) => setSelectedEvent(evt)}
                   isBookmarked={bookmarkedIds.includes(event.id)}
                   onToggleBookmark={handleToggleBookmark}
+                  isRegistered={registeredIds.includes(event.id)}
+                  onRegister={handleRegister}
                   user={user}
                   onOpenAuth={() => handleOpenAuthWithMessage('Please log in or create an account to register for events.')}
                 />
