@@ -52,8 +52,22 @@ export default function App() {
 
   // User state, Bookmarks, Registrations
   const [user, setUser] = useState<User | null>(null);
-  const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(['pune-1', 'pune-3']);
-  const [registeredIds, setRegisteredIds] = useState<string[]>(['pune-2']);
+  const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('nearevent_bookmarked_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [registeredIds, setRegisteredIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('nearevent_registered_ids');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Modals state
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
@@ -207,16 +221,31 @@ export default function App() {
   // Toggle Bookmark
   const handleToggleBookmark = (eventId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    setBookmarkedIds((prev) =>
-      prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]
-    );
+    setBookmarkedIds((prev) => {
+      const updated = prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId];
+      try {
+        localStorage.setItem('nearevent_bookmarked_ids', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('Failed to save bookmarks:', err);
+      }
+      return updated;
+    });
   };
 
   // Register Event
   const handleRegister = (eventId: string) => {
-    if (!registeredIds.includes(eventId)) {
-      setRegisteredIds((prev) => [...prev, eventId]);
-    }
+    setRegisteredIds((prev) => {
+      if (!prev.includes(eventId)) {
+        const updated = [...prev, eventId];
+        try {
+          localStorage.setItem('nearevent_registered_ids', JSON.stringify(updated));
+        } catch (err) {
+          console.warn('Failed to save registered events:', err);
+        }
+        return updated;
+      }
+      return prev;
+    });
   };
 
   // Create or Update Event Handler
