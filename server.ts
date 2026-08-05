@@ -268,6 +268,7 @@ async function startServer() {
       await EventModel.deleteMany({
         $or: [
           { eventId: { $nin: currentIds }, source: { $in: ['database', 'api', undefined] } },
+          { city: { $regex: /pune/i }, startDate: { $lt: '2026-08-05' } },
           { title: { $regex: /arijit|mindspark|untitled event|unstop|bookmyshow/i } },
           { registrationUrl: { $regex: /unstop|bookmyshow|thegrubfest|bharatdrone/i } },
           { organizer: { $regex: /unstop|bookmyshow/i } },
