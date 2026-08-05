@@ -21,10 +21,30 @@ export function getCleanRegistrationUrl(url?: string, category?: string, title?:
     const isSafe =
       (cleanUrl.includes('devfolio.co') ||
       cleanUrl.includes('meetup.com') ||
-      cleanUrl.includes('eventbrite.in') ||
-      cleanUrl.includes('eventbrite.com') ||
+      cleanUrl.includes('eventbrite') ||
       cleanUrl.includes('lu.ma') ||
       cleanUrl.includes('luma.com') ||
+      cleanUrl.includes('townscript.com') ||
+      cleanUrl.includes('citywoofer.com') ||
+      cleanUrl.includes('punedesignfestival.com') ||
+      cleanUrl.includes('punetestingconference.com') ||
+      cleanUrl.includes('devconf.info') ||
+      cleanUrl.includes('10times.com') ||
+      cleanUrl.includes('hackathonradar.com') ||
+      cleanUrl.includes('reskilll.com') ||
+      cleanUrl.includes('hack2skill.com') ||
+      cleanUrl.includes('hackerearth.com') ||
+      cleanUrl.includes('coep.org.in') ||
+      cleanUrl.includes('mitwpu.edu.in') ||
+      cleanUrl.includes('pccoe.com') ||
+      cleanUrl.includes('allevents.in') ||
+      cleanUrl.includes('indianathletics.in') ||
+      cleanUrl.includes('poonaclubltd.com') ||
+      cleanUrl.includes('conferencealerts') ||
+      cleanUrl.includes('mepass.in') ||
+      cleanUrl.includes('yotix.in') ||
+      cleanUrl.includes('district.in') ||
+      cleanUrl.includes('instagram.com') ||
       cleanUrl.includes('paytm.com/events')) &&
       !isForbidden;
 
