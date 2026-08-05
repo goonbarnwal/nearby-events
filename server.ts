@@ -91,11 +91,9 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
       cleanUrl.includes('ET003') ||
       cleanUrl.includes('ET00') ||
       cleanUrl.includes('insider.in') ||
+      cleanUrl.includes('unstop.com') ||
+      cleanUrl.includes('unstop.in') ||
       /bookmyshow\.com\/events\//i.test(cleanUrl) ||
-      /unstop\.com\/events\/[a-z0-9-]+$/i.test(cleanUrl) ||
-      /unstop\.com\/hackathons\/[a-z0-9-]+$/i.test(cleanUrl) ||
-      /unstop\.com\/o\/[a-z0-9-]+$/i.test(cleanUrl) ||
-      /devfolio\.co\/hackathons\/[a-z0-9-]+$/i.test(cleanUrl) ||
       /insider\.in/i.test(cleanUrl);
 
     if (!isFakeOrDead) {
@@ -109,10 +107,7 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
 
   // 1. Hackathons & Coding Competitions
   if (catLower.includes('hackathon') || titleLower.includes('hackathon') || titleLower.includes('coding') || titleLower.includes('code')) {
-    if (titleLower.includes('devfolio')) {
-      return 'https://devfolio.co/hackathons';
-    }
-    return 'https://unstop.com/hackathons';
+    return 'https://devfolio.co/hackathons';
   }
 
   // 2. Music, Concerts, Comedy, Shows
@@ -138,7 +133,7 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
 
   // 5. Tech, Startup, Meetup, Business, Workshop
   if (catLower.includes('tech') || catLower.includes('meetup') || catLower.includes('business') || catLower.includes('startup') || catLower.includes('workshop')) {
-    return 'https://unstop.com/events';
+    return 'https://www.meetup.com/find/tech/';
   }
 
   return `https://in.bookmyshow.com/explore/events-${citySlug}`;
@@ -270,7 +265,9 @@ async function startServer() {
       await EventModel.deleteMany({
         $or: [
           { eventId: { $nin: currentIds }, source: { $in: ['database', 'api', undefined] } },
-          { title: { $regex: /arijit|mindspark|untitled event/i } },
+          { title: { $regex: /arijit|mindspark|untitled event|unstop/i } },
+          { registrationUrl: { $regex: /unstop/i } },
+          { organizer: { $regex: /unstop/i } },
           { source: 'user', title: { $regex: /untitled/i } },
         ],
       });
@@ -1550,9 +1547,14 @@ function generateEventsForCity(cityName: string) {
         }
       }
 
-      // Calculate distances, sanitize registration URLs, & exclude deleted titles
+      // Calculate distances, sanitize registration URLs, & exclude deleted titles / unstop
       let results = allEvts
-        .filter((evt) => !/arijit|mindspark/i.test(evt.title || ''))
+        .filter((evt) => {
+          const t = (evt.title || '').toLowerCase();
+          const r = (evt.registrationUrl || '').toLowerCase();
+          const o = (evt.organizer || '').toLowerCase();
+          return !/arijit|mindspark/i.test(t) && !r.includes('unstop') && !t.includes('unstop') && !o.includes('unstop');
+        })
         .map((evt) => {
           const dist = calculateDistance(targetLat, targetLon, evt.latitude, evt.longitude);
           return {
@@ -1621,52 +1623,120 @@ function generateEventsForCity(cityName: string) {
 
       // Filter by Category strictly
       if (category && typeof category === 'string' && category !== 'All') {
-        const catLower = category.toLowerCase();
+        const catLower = category.toLowerCase().trim();
         results = results.filter((e) => {
           const mainCat = (e.category || '').toLowerCase();
           const subType = (e.subtype || '').toLowerCase();
           const titleLower = (e.title || '').toLowerCase();
           const tagsLower = (e.tags || []).map((t: string) => String(t).toLowerCase());
 
-          if (catLower === 'hackathon') {
-            return mainCat === 'hackathon' || subType === 'hackathon' || titleLower.includes('hackathon') || tagsLower.includes('hackathon');
-          }
           if (catLower === 'tech') {
+            // Must NOT be a non-tech category, hackathon, or workshop
+            if (['comedy', 'music', 'food', 'sports', 'culinary'].includes(mainCat)) return false;
+            if (mainCat === 'hackathon' || subType === 'hackathon') return false;
+            if (mainCat === 'workshop' || subType === 'workshop') return false;
+
             return (
               mainCat === 'tech' ||
               mainCat === 'ai' ||
-              subType === 'tech' ||
-              subType === 'meetup' ||
-              subType === 'conference' ||
-              tagsLower.some((t: string) => ['tech', 'ai', 'cloud', 'hackathon', 'googleai', 'gemini'].includes(t)) ||
+              tagsLower.some((t: string) => ['tech', 'ai', 'cloud', 'developer', 'software', 'googleai', 'gemini', 'coding', 'cybersecurity', 'devops'].includes(t)) ||
               titleLower.includes('tech') ||
-              titleLower.includes('ai') ||
-              titleLower.includes('hackathon')
+              titleLower.includes('ai ') ||
+              titleLower.includes('technology') ||
+              titleLower.includes('software') ||
+              titleLower.includes('cloud') ||
+              titleLower.includes('devops') ||
+              titleLower.includes('data science') ||
+              titleLower.includes('cyber') ||
+              titleLower.includes('machine learning')
             );
           }
-          if (catLower === 'sports') {
-            return mainCat === 'sports' || subType === 'sports' || subType === 'marathon' || tagsLower.some((t: string) => ['sports', 'marathon', 'fitness', 'running'].includes(t));
+
+          if (catLower === 'hackathon') {
+            return mainCat === 'hackathon' || subType === 'hackathon' || titleLower.includes('hackathon') || tagsLower.includes('hackathon');
           }
+
           if (catLower === 'workshop') {
-            return mainCat === 'workshop' || subType === 'workshop' || tagsLower.includes('workshop') || titleLower.includes('workshop');
+            return mainCat === 'workshop' || subType === 'workshop' || titleLower.includes('workshop') || tagsLower.includes('workshop');
           }
+
           if (catLower === 'music') {
-            return mainCat === 'music' || subType === 'concert' || subType === 'festival' || tagsLower.includes('music') || titleLower.includes('music') || titleLower.includes('concert');
+            return (
+              mainCat === 'music' ||
+              subType === 'concert' ||
+              tagsLower.some((t: string) => ['music', 'concert', 'live band', 'dj', 'musical'].includes(t)) ||
+              titleLower.includes('music') ||
+              titleLower.includes('concert') ||
+              titleLower.includes('symphony') ||
+              titleLower.includes('dj live')
+            );
           }
+
+          if (catLower === 'sports') {
+            return (
+              mainCat === 'sports' ||
+              subType === 'sports' ||
+              subType === 'marathon' ||
+              tagsLower.some((t: string) => ['sports', 'marathon', 'fitness', 'running', 'cricket', 'football', 'badminton'].includes(t)) ||
+              titleLower.includes('sports') ||
+              titleLower.includes('marathon') ||
+              titleLower.includes('run') ||
+              titleLower.includes('cricket') ||
+              titleLower.includes('badminton') ||
+              titleLower.includes('fitness')
+            );
+          }
+
           if (catLower === 'business') {
-            return mainCat === 'business' || subType === 'summit' || subType === 'networking' || tagsLower.includes('business') || tagsLower.includes('leadership');
+            return (
+              mainCat === 'business' ||
+              tagsLower.some((t: string) => ['business', 'leadership', 'corporate', 'msme', 'finance'].includes(t)) ||
+              titleLower.includes('business') ||
+              titleLower.includes('msme') ||
+              titleLower.includes('leadership summit') ||
+              titleLower.includes('corporate')
+            );
           }
-          if (catLower === 'food') {
-            return mainCat === 'food' || mainCat === 'culinary' || tagsLower.includes('food') || titleLower.includes('food');
-          }
-          if (catLower === 'exhibition') {
-            return mainCat === 'exhibition' || subType === 'exhibition' || tagsLower.includes('exhibition') || titleLower.includes('expo');
-          }
+
           if (catLower === 'startup') {
-            return mainCat === 'startup' || subType === 'startup' || tagsLower.some((t: string) => ['startup', 'founders', 'vc'].includes(t)) || titleLower.includes('startup');
+            return (
+              mainCat === 'startup' ||
+              tagsLower.some((t: string) => ['startup', 'founders', 'vc', 'pitch'].includes(t)) ||
+              titleLower.includes('startup') ||
+              titleLower.includes('founders') ||
+              titleLower.includes('pitch')
+            );
           }
+
+          if (catLower === 'food') {
+            return (
+              mainCat === 'food' ||
+              mainCat === 'culinary' ||
+              tagsLower.some((t: string) => ['food', 'culinary', 'dining', 'street food'].includes(t)) ||
+              titleLower.includes('food') ||
+              titleLower.includes('culinary') ||
+              titleLower.includes('dining')
+            );
+          }
+
           if (catLower === 'comedy') {
-            return mainCat === 'comedy' || subType === 'comedy' || tagsLower.includes('comedy') || titleLower.includes('comedy');
+            return (
+              mainCat === 'comedy' ||
+              subType === 'standup' ||
+              tagsLower.some((t: string) => ['comedy', 'standup', 'open mic'].includes(t)) ||
+              titleLower.includes('comedy') ||
+              titleLower.includes('standup')
+            );
+          }
+
+          if (catLower === 'exhibition') {
+            return (
+              mainCat === 'exhibition' ||
+              subType === 'exhibition' ||
+              tagsLower.includes('exhibition') ||
+              titleLower.includes('expo') ||
+              titleLower.includes('exhibition')
+            );
           }
 
           return mainCat === catLower || subType === catLower || tagsLower.includes(catLower) || titleLower.includes(catLower);
