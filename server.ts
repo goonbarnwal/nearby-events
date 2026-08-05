@@ -73,30 +73,24 @@ function fixRegistrationUrl(url?: string, title?: string, category?: string, cit
     citySlug = 'ncr';
   }
 
-  // Check if it's a known real active custom link (e.g. Google Forms, Townscript, Meetup, Luma, Official College sites)
+  // Check if it's a known safe active portal link
   if (cleanUrl && (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://'))) {
-    const isFakeOrDead =
-      cleanUrl.includes('mumbaitechsummit') ||
-      cleanUrl.includes('example.com') ||
-      cleanUrl.includes('near-event.app') ||
-      cleanUrl.includes('gen-') ||
-      cleanUrl.includes('patna-ai-innovation-summit') ||
-      cleanUrl.includes('hack4patna') ||
-      cleanUrl.includes('hack4kolkata') ||
-      cleanUrl.includes('hackbriven.com') ||
-      cleanUrl.includes('brainallianz.org') ||
-      cleanUrl.includes('innovate4impact.vercel.app') ||
-      cleanUrl.includes('/search?q=') ||
-      cleanUrl.includes('google.com/search') ||
-      cleanUrl.includes('ET003') ||
-      cleanUrl.includes('ET00') ||
-      cleanUrl.includes('insider.in') ||
-      cleanUrl.includes('unstop.com') ||
-      cleanUrl.includes('unstop.in') ||
-      /bookmyshow\.com\/events\//i.test(cleanUrl) ||
-      /insider\.in/i.test(cleanUrl);
+    const isSafePlatform =
+      cleanUrl.includes('devfolio.co') ||
+      cleanUrl.includes('meetup.com') ||
+      cleanUrl.includes('eventbrite.com') ||
+      cleanUrl.includes('lu.ma') ||
+      cleanUrl.includes('luma.com') ||
+      cleanUrl.includes('bookmyshow.com/explore/');
 
-    if (!isFakeOrDead) {
+    const isUnsafeOrDead =
+      cleanUrl.includes('unstop') ||
+      cleanUrl.includes('insider.in') ||
+      cleanUrl.includes('thegrubfest') ||
+      cleanUrl.includes('bharatdrone') ||
+      /bookmyshow\.com\/events\//i.test(cleanUrl);
+
+    if (isSafePlatform && !isUnsafeOrDead) {
       return cleanUrl;
     }
   }
