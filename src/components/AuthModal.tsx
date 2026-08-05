@@ -111,8 +111,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     }
   };
 
-  // Listen for Google OAuth popup callback message
+  // Load Google Identity Services script dynamically and listen for OAuth message
   useEffect(() => {
+    // Load Google GSI Client Script
+    if (!document.getElementById('google-gsi-script')) {
+      const script = document.createElement('script');
+      script.id = 'google-gsi-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
     const handleMessage = async (event: MessageEvent) => {
       if (event.data?.type === 'GOOGLE_OAUTH_SUCCESS') {
         const { idToken, accessToken, code, error: popupErr } = event.data;
@@ -196,13 +206,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
 
       if (!clientId || clientId.includes('your_google_client_id') || clientId === 'demo-google-oauth-client-id') {
         setError(
-          `Google Client ID is not configured. Please set GOOGLE_CLIENT_ID in .env or Google Cloud Console, and add "${window.location.origin}/auth/google/callback" to Authorized Redirect URIs.`
+          `Google Client ID is not configured. Please set GOOGLE_CLIENT_ID in .env or Google Cloud Console.`
         );
         setLoading(false);
         return;
       }
 
-      if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
+      // Check if Google Identity Services Token Client is available (No redirect_uri needed!)
+      if (typeof window !== 'undefined' && (window as any).google?.accounts?.oauth2) {
+        const tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'openid email profile',
+          callback: async (tokenResponse: any) => {
+            if (tokenResponse.error) {
+              if (tokenResponse.error !== 'popup_closed_by_user') {
+                setError(`Google Sign-In error: ${tokenResponse.error}`);
+              }
+              setLoading(false);
+              return;
+            }
+            if (tokenResponse.access_token) {
+              try {
+                const res = await googleAuthUser({ accessToken: tokenResponse.access_token });
+                if (res.token) localStorage.setItem('nearevent_jwt', res.token);
+                saveUserToLocal(res.user);
+                setToast({
+                  type: 'success',
+                  message: 'Google Sign-In Successful!',
+                  subText: `Welcome, ${res.user.name}`,
+                });
+                setTimeout(() => {
+                  onLoginSuccess(res.user);
+                }, 600);
+              } catch (err: any) {
+                setError(err.message || 'Google Auth Verification Failed');
+              } finally {
+                setLoading(false);
+              }
+            }
+          },
+        });
+        tokenClient.requestAccessToken();
+      } else if (typeof window !== 'undefined' && (window as any).google?.accounts?.id) {
         (window as any).google.accounts.id.initialize({
           client_id: clientId,
           callback: async (response: any) => {
@@ -755,16 +800,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                 )}
                 <span>Continue with Google</span>
               </button>
-
-              {/* Divider */}
-              <div className="relative my-3">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
-                </div>
-                <div className="relative flex justify-center text-xs text-slate-400 font-bold uppercase tracking-wider">
-                  <span className="bg-white dark:bg-slate-900 px-4">OR</span>
-                </div>
-              </div>
 
               {/* Credentials Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-3.5">
