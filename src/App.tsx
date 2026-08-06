@@ -12,6 +12,7 @@ import { AdminPanelModal } from './components/AdminPanelModal';
 import { AiRecommendationsModal } from './components/AiRecommendationsModal';
 import { AboutModal } from './components/AboutModal';
 import { TermsModal } from './components/TermsModal';
+import { CookieConsentBanner } from './components/CookieConsentBanner';
 import { Footer } from './components/Footer';
 import { EventItem, FilterState, UserLocation, User } from './types';
 import { INITIAL_EVENTS } from './data/mockEvents';
@@ -675,6 +676,13 @@ export default function App() {
           initialTab={termsTab}
         />
       )}
+
+      <CookieConsentBanner
+        onOpenPrivacy={() => {
+          setTermsTab('privacy');
+          setTermsModalOpen(true);
+        }}
+      />
 
     </div>
   );

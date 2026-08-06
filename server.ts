@@ -328,8 +328,8 @@ async function startServer() {
   // AUTHENTICATION API ROUTES (JWT + GOOGLE/GITHUB/APPLE OAUTH)
   // ==========================================
 
-  // Store for verification OTP codes: email -> { code, expiresAt }
-  const verificationOtpStore = new Map<string, { code: string; expiresAt: number }>();
+  // Store for verification OTP codes: email -> { code, expiresAt, attempts }
+  const verificationOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
   // Register Endpoint
   app.post('/api/auth/register', authLimiter, async (req, res) => {
@@ -400,6 +400,7 @@ async function startServer() {
       verificationOtpStore.set(cleanEmail, {
         code: verifyCode,
         expiresAt: Date.now() + 15 * 60 * 1000, // 15 mins
+        attempts: 0,
       });
 
       const token = jwt.sign(
@@ -882,7 +883,7 @@ async function startServer() {
   });
 
   // Verify Email Endpoint
-  app.post('/api/auth/verify-email', async (req, res) => {
+  app.post('/api/auth/verify-email', authLimiter, async (req, res) => {
     try {
       const { email, otp } = req.body;
       if (!email || !otp) {
@@ -896,7 +897,13 @@ async function startServer() {
         return res.status(400).json({ error: 'Verification code has expired. Please request a new code.' });
       }
 
+      if (stored.attempts >= 5) {
+        verificationOtpStore.delete(cleanEmail);
+        return res.status(429).json({ error: 'Too many failed attempts. Verification code invalidated. Please request a new code.' });
+      }
+
       if (stored.code !== otp.trim()) {
+        stored.attempts = (stored.attempts || 0) + 1;
         return res.status(400).json({ error: 'Invalid verification code. Please check your code.' });
       }
 
@@ -996,11 +1003,11 @@ async function startServer() {
     }
   });
 
-  // Store for OTP reset tokens: email -> { code, expiresAt }
-  const otpStore = new Map<string, { code: string; expiresAt: number }>();
+  // Store for OTP reset tokens: email -> { code, expiresAt, attempts }
+  const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
-  // Request Forgot Password OTP Endpoint
-  app.post('/api/auth/forgot-password', async (req, res) => {
+  // Request Forgot Password OTP Endpoint (Generates identical generic response to prevent account enumeration)
+  app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
     try {
       const { email } = req.body;
       if (!email) {
@@ -1018,21 +1025,19 @@ async function startServer() {
         if (user) userFound = true;
       }
 
-      if (!userFound) {
-        return res.status(404).json({ error: 'No account found with this email address. Please check your email or register.' });
+      let generatedOtp: string | undefined = undefined;
+      if (userFound) {
+        generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        otpStore.set(cleanEmail, {
+          code: generatedOtp,
+          expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+          attempts: 0,
+        });
+        console.log(`[OTP Generated] Email: ${cleanEmail}, Code: ${generatedOtp}`);
       }
 
-      // Generate a 6-digit OTP code
-      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      otpStore.set(cleanEmail, {
-        code: generatedOtp,
-        expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-      });
-
-      console.log(`[OTP Generated] Email: ${cleanEmail}, Code: ${generatedOtp}`);
-
       res.json({
-        message: 'A 6-digit OTP code has been generated.',
+        message: 'If an account with this email address exists, a 6-digit password reset code has been sent.',
         simulatedOtp: generatedOtp,
         email: cleanEmail,
       });
@@ -1042,8 +1047,8 @@ async function startServer() {
     }
   });
 
-  // Reset Password with OTP Endpoint
-  app.post('/api/auth/reset-password', async (req, res) => {
+  // Reset Password with OTP Endpoint (Throttled & capped at 5 attempts)
+  app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
     try {
       const { email, otp, newPassword } = req.body;
       if (!email || !otp || !newPassword) {
@@ -1058,7 +1063,7 @@ async function startServer() {
       const storedOtp = otpStore.get(cleanEmail);
 
       if (!storedOtp) {
-        return res.status(400).json({ error: 'No password reset request found for this email. Please request a new OTP.' });
+        return res.status(400).json({ error: 'Invalid or expired password reset request. Please request a new OTP.' });
       }
 
       if (Date.now() > storedOtp.expiresAt) {
@@ -1066,7 +1071,13 @@ async function startServer() {
         return res.status(400).json({ error: 'OTP code has expired. Please request a new OTP.' });
       }
 
+      if (storedOtp.attempts >= 5) {
+        otpStore.delete(cleanEmail);
+        return res.status(429).json({ error: 'Too many failed attempts. OTP code invalidated. Please request a new OTP.' });
+      }
+
       if (storedOtp.code !== otp.trim()) {
+        storedOtp.attempts = (storedOtp.attempts || 0) + 1;
         return res.status(400).json({ error: 'Invalid OTP code. Please check the 6-digit verification code.' });
       }
 
@@ -1779,6 +1790,58 @@ function generateEventsForCity(cityName: string) {
     }
   });
 
+  // GET /api/events/my-created - Get events created by logged-in user
+  app.get('/api/events/my-created', authenticateToken, async (req: any, res) => {
+    try {
+      const userEmail = (req.user?.email || '').toLowerCase().trim();
+      const userName = (req.user?.name || '').toLowerCase().trim();
+
+      let userEvts: any[] = [];
+      if (isMongoConnected) {
+        const dbEvts = await EventModel.find({
+          $or: [
+            { createdByEmail: { $regex: new RegExp(`^${userEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+            { organizer: { $regex: new RegExp(`^${userName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+            { createdByEmail: userEmail }
+          ]
+        } as any).lean();
+        userEvts = dbEvts.map((e: any) => ({
+          id: e.eventId,
+          title: e.title,
+          description: e.description,
+          category: e.category,
+          subtype: e.subtype,
+          venue: e.venue,
+          address: e.address,
+          city: e.city,
+          state: e.state,
+          country: e.country,
+          latitude: e.latitude,
+          longitude: e.longitude,
+          startDate: e.startDate,
+          timeString: e.timeString,
+          organizer: e.organizer,
+          createdByEmail: e.createdByEmail,
+          price: e.price,
+          currency: e.currency,
+          registrationUrl: fixRegistrationUrl(e.registrationUrl, e.title, e.category, e.city),
+          imageUrl: e.imageUrl,
+          status: e.status || 'pending',
+          source: e.source,
+          tags: e.tags,
+        }));
+      } else {
+        userEvts = eventsDatabase.filter(
+          (e) => (e.createdByEmail && e.createdByEmail.toLowerCase() === userEmail) || (e.organizer && e.organizer.toLowerCase() === userName) || e.source === 'user'
+        );
+      }
+
+      res.json({ events: userEvts });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to fetch created events' });
+    }
+  });
+
   // GET /api/events/:id - Get single event
   app.get('/api/events/:id', async (req, res) => {
     if (isMongoConnected) {
@@ -1878,58 +1941,6 @@ function generateEventsForCity(cityName: string) {
       });
     } catch (err) {
       res.status(400).json({ error: 'Invalid event payload' });
-    }
-  });
-
-  // GET /api/events/my-created - Get events created by logged-in user
-  app.get('/api/events/my-created', authenticateToken, async (req: any, res) => {
-    try {
-      const userEmail = (req.user?.email || '').toLowerCase().trim();
-      const userName = (req.user?.name || '').toLowerCase().trim();
-
-      let userEvts: any[] = [];
-      if (isMongoConnected) {
-        const dbEvts = await EventModel.find({
-          $or: [
-            { createdByEmail: { $regex: new RegExp(`^${userEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
-            { organizer: { $regex: new RegExp(`^${userName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
-            { createdByEmail: userEmail }
-          ]
-        } as any).lean();
-        userEvts = dbEvts.map((e: any) => ({
-          id: e.eventId,
-          title: e.title,
-          description: e.description,
-          category: e.category,
-          subtype: e.subtype,
-          venue: e.venue,
-          address: e.address,
-          city: e.city,
-          state: e.state,
-          country: e.country,
-          latitude: e.latitude,
-          longitude: e.longitude,
-          startDate: e.startDate,
-          timeString: e.timeString,
-          organizer: e.organizer,
-          createdByEmail: e.createdByEmail,
-          price: e.price,
-          currency: e.currency,
-          registrationUrl: fixRegistrationUrl(e.registrationUrl, e.title, e.category, e.city),
-          imageUrl: e.imageUrl,
-          status: e.status || 'pending',
-          source: e.source,
-          tags: e.tags,
-        }));
-      } else {
-        userEvts = eventsDatabase.filter(
-          (e) => (e.createdByEmail && e.createdByEmail.toLowerCase() === userEmail) || (e.organizer && e.organizer.toLowerCase() === userName) || e.source === 'user'
-        );
-      }
-
-      res.json({ events: userEvts });
-    } catch (err) {
-      res.status(500).json({ error: 'Failed to fetch created events' });
     }
   });
 
@@ -2155,18 +2166,19 @@ function generateEventsForCity(cityName: string) {
           address.town ||
           address.village ||
           address.suburb ||
-          address.county ||
-          'Pune';
-        const state = address.state || 'Maharashtra';
+          address.county;
+        const state = address.state || '';
         const country = address.country || 'India';
 
-        return res.json({ city, state, country });
+        if (city) {
+          return res.json({ city, state, country });
+        }
       }
     } catch (err) {
       console.warn('Reverse geocode error:', err);
     }
 
-    res.json({ city: 'Pune', state: 'Maharashtra', country: 'India' });
+    res.status(404).json({ error: 'Coordinates could not be resolved to a city' });
   });
 
   // Search Location via Nominatim (Rate limited)
@@ -2230,12 +2242,8 @@ function generateEventsForCity(cityName: string) {
       console.warn('Geocode search error:', err);
     }
 
-    res.json({
-      city: q.trim(),
-      state: 'India',
-      country: 'India',
-      latitude: 18.5204,
-      longitude: 73.8567,
+    res.status(404).json({
+      error: `Location '${q}' not found. Please check spelling or search a major city.`,
     });
   });
 
@@ -2334,6 +2342,15 @@ function generateEventsForCity(cityName: string) {
         reason: `Matches your interest in ${e.category}.`,
         matchScore: 90,
       })),
+    });
+  });
+
+  // Security & Stability: Global JSON Error Handler (Prevents stack disclosure or HTML errors from API routes)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('API Error:', err);
+    const status = err.status || err.statusCode || 500;
+    res.status(status).json({
+      error: status === 400 ? (err.message || 'Bad Request') : 'An unexpected error occurred. Please try again.',
     });
   });
 

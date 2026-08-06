@@ -100,7 +100,7 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
 
   if (!event) return null;
 
-  const { month, day, dayOfWeek } = formatDateParts(event.startDate);
+  const { month, day, dayOfWeek, year } = formatDateParts(event.startDate);
 
   const handleGenerateSummary = async () => {
     setIsGeneratingSummary(true);
@@ -223,7 +223,7 @@ export const EventDetailsModal: React.FC<EventDetailsModalProps> = ({
               <div>
                 <p className="text-[11px] font-bold text-slate-400 uppercase">Date</p>
                 <p className="text-xs font-bold text-slate-800">
-                  {month} {day}, {dayOfWeek}
+                  {month} {day}, {year || '2026'} ({dayOfWeek})
                 </p>
               </div>
             </div>

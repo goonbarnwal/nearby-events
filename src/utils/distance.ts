@@ -27,16 +27,37 @@ export function calculateDistance(
  */
 export function formatDateParts(dateStr: string) {
   try {
-    const d = new Date(dateStr + 'T00:00:00');
-    if (isNaN(d.getTime())) {
-      return { month: 'MAY', day: '25', dayOfWeek: 'Sat' };
+    if (!dateStr) {
+      return { month: 'AUG', day: '15', dayOfWeek: 'Sat', year: '2026' };
     }
-    const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-    const day = d.getDate().toString();
-    const dayOfWeek = d.toLocaleString('en-US', { weekday: 'short' });
-    return { month, day, dayOfWeek };
+
+    const clean = dateStr.trim();
+    const isoMatch = clean.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (isoMatch) {
+      const year = isoMatch[1];
+      const monthIdx = parseInt(isoMatch[2], 10) - 1;
+      const dayNum = parseInt(isoMatch[3], 10);
+      const d = new Date(parseInt(year, 10), monthIdx, dayNum);
+      if (!isNaN(d.getTime())) {
+        const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+        const day = d.getDate().toString();
+        const dayOfWeek = d.toLocaleString('en-US', { weekday: 'short' });
+        return { month, day, dayOfWeek, year };
+      }
+    }
+
+    const d = new Date(clean);
+    if (!isNaN(d.getTime())) {
+      const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+      const day = d.getDate().toString();
+      const dayOfWeek = d.toLocaleString('en-US', { weekday: 'short' });
+      const year = d.getFullYear().toString();
+      return { month, day, dayOfWeek, year };
+    }
+
+    return { month: 'AUG', day: '15', dayOfWeek: 'Sat', year: '2026' };
   } catch {
-    return { month: 'MAY', day: '25', dayOfWeek: 'Sat' };
+    return { month: 'AUG', day: '15', dayOfWeek: 'Sat', year: '2026' };
   }
 }
 
