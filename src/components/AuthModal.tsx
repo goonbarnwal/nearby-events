@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import {
   X,
   Mail,
@@ -85,6 +86,42 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string; subText?: string } | null>(null);
+  const [googleClientId, setGoogleClientId] = useState<string>('');
+
+  // Fetch OAuth config on mount
+  useEffect(() => {
+    getAuthConfig().then((cfg) => {
+      if (cfg.googleClientId) {
+        setGoogleClientId(cfg.googleClientId);
+      }
+    });
+  }, []);
+
+  const handleGoogleCredentialSuccess = async (credential: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await googleAuthUser({ credential });
+      if (res.token) {
+        localStorage.setItem('nearevent_jwt', res.token);
+      }
+      saveUserToLocal({ name: res.user.name, email: res.user.email });
+
+      setToast({
+        type: 'success',
+        message: 'Google Sign-In Successful!',
+        subText: `Welcome, ${res.user.name}`,
+      });
+
+      setTimeout(() => {
+        onLoginSuccess(res.user);
+      }, 600);
+    } catch (err: any) {
+      setError(err.message || 'Google Auth Verification Failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Countdown timer for resending verification code
   useEffect(() => {
@@ -788,6 +825,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
             /* TAB 1: LOG IN */
             <div className="space-y-4 animate-in fade-in duration-200">
               
+              {/* Google Official OAuth Sign-In */}
+              <div className="space-y-3">
+                {googleClientId ? (
+                  <GoogleOAuthProvider clientId={googleClientId}>
+                    <div className="w-full flex justify-center rounded-2xl overflow-hidden py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <GoogleLogin
+                        onSuccess={(credentialResponse) => {
+                          if (credentialResponse.credential) {
+                            handleGoogleCredentialSuccess(credentialResponse.credential);
+                          } else {
+                            setError('Google Sign-In failed - missing credential token.');
+                          }
+                        }}
+                        onError={() => {
+                          setError('Google Sign-In popup was closed or cancelled.');
+                        }}
+                        useOneTap={false}
+                        theme={isDarkMode ? 'filled_black' : 'outline'}
+                        size="large"
+                        text="continue_with"
+                        shape="pill"
+                        width="100%"
+                      />
+                    </div>
+                  </GoogleOAuthProvider>
+                ) : (
+                  <div className="w-full py-2.5 px-4 bg-slate-800/80 text-slate-300 rounded-2xl text-xs font-semibold text-center flex items-center justify-center gap-2 border border-slate-700/60">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-400" /> Connecting to Google Auth...
+                  </div>
+                )}
+
+                <div className="relative flex items-center justify-center my-2">
+                  <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
+                  <span className="bg-slate-900 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest absolute">
+                    Or continue with email
+                  </span>
+                </div>
+              </div>
+
               {/* Credentials Form */}
               <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                 <div>
@@ -862,6 +938,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
             /* TAB 2: SIGN UP (Exact DocsAI Style) */
             <div className="space-y-4 animate-in fade-in duration-200">
               
+              {/* Google Official OAuth Sign-Up */}
+              <div className="space-y-3">
+                {googleClientId ? (
+                  <GoogleOAuthProvider clientId={googleClientId}>
+                    <div className="w-full flex justify-center rounded-2xl overflow-hidden py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <GoogleLogin
+                        onSuccess={(credentialResponse) => {
+                          if (credentialResponse.credential) {
+                            handleGoogleCredentialSuccess(credentialResponse.credential);
+                          } else {
+                            setError('Google Sign-In failed - missing credential token.');
+                          }
+                        }}
+                        onError={() => {
+                          setError('Google Sign-In popup was closed or cancelled.');
+                        }}
+                        useOneTap={false}
+                        theme={isDarkMode ? 'filled_black' : 'outline'}
+                        size="large"
+                        text="signup_with"
+                        shape="pill"
+                        width="100%"
+                      />
+                    </div>
+                  </GoogleOAuthProvider>
+                ) : (
+                  <div className="w-full py-2.5 px-4 bg-slate-800/80 text-slate-300 rounded-2xl text-xs font-semibold text-center flex items-center justify-center gap-2 border border-slate-700/60">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-400" /> Connecting to Google Auth...
+                  </div>
+                )}
+
+                <div className="relative flex items-center justify-center my-2">
+                  <div className="border-t border-slate-200 dark:border-slate-800 w-full"></div>
+                  <span className="bg-slate-900 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest absolute">
+                    Or sign up with email
+                  </span>
+                </div>
+              </div>
+
               <form onSubmit={handleSignUpSubmit} className="space-y-3">
                 <div>
                   <input

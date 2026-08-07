@@ -593,7 +593,7 @@ async function startServer() {
   // Config Endpoint to retrieve client OAuth ID
   app.get('/api/auth/config', (req, res) => {
     res.json({
-      googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '',
+      googleClientId: process.env.GOOGLE_CLIENT_ID || process.env.OAUTH_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '',
     });
   });
 
