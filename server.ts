@@ -7,10 +7,106 @@ import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
+import nodemailer from 'nodemailer';
 import { INITIAL_EVENTS } from './src/data/mockEvents.js';
 import { calculateDistance } from './src/utils/distance.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'nearevent_jwt_secret_key_2026';
+
+// ==========================================
+// EMAIL SERVICE SETUP (NODEMAILER)
+// ==========================================
+let mailTransporter: nodemailer.Transporter | null = null;
+
+function getMailTransporter(): nodemailer.Transporter | null {
+  if (mailTransporter) return mailTransporter;
+
+  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+  const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+
+  if (host && user && pass) {
+    mailTransporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+    return mailTransporter;
+  }
+
+  if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
+    mailTransporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_PASS,
+      },
+    });
+    return mailTransporter;
+  }
+
+  return null;
+}
+
+async function sendOtpEmail(toEmail: string, otp: string, type: 'verification' | 'reset'): Promise<boolean> {
+  const transporter = getMailTransporter();
+  const subject =
+    type === 'verification'
+      ? 'NearEvent - Verify Your Email Address'
+      : 'NearEvent - Password Reset Verification Code';
+
+  const html = `
+    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+      <h2 style="color: #2563eb; text-align: center; margin-bottom: 20px; font-weight: 800;">NearEvent 📍</h2>
+      <p style="font-size: 15px; color: #334155;">Hello,</p>
+      <p style="font-size: 14px; color: #475569; line-height: 1.5;">
+        ${
+          type === 'verification'
+            ? 'Thank you for creating an account with NearEvent! Use the verification code below to complete your registration.'
+            : 'We received a request to reset your NearEvent account password. Use the verification code below to set a new password.'
+        }
+      </p>
+      <div style="background-color: #f1f5f9; padding: 18px; border-radius: 12px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #0f172a; font-family: monospace;">${otp}</span>
+      </div>
+      <p style="font-size: 12px; color: #64748b; text-align: center;">
+        This verification code expires in 15 minutes. If you did not request this code, please ignore this email.
+      </p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 24px;" />
+      <p style="font-size: 11px; color: #94a3b8; text-align: center;">&copy; ${new Date().getFullYear()} NearEvent. All rights reserved.</p>
+    </div>
+  `;
+
+  if (transporter) {
+    try {
+      const fromAddr =
+        process.env.SMTP_FROM ||
+        process.env.EMAIL_FROM ||
+        process.env.SMTP_USER ||
+        process.env.EMAIL_USER ||
+        process.env.GMAIL_USER ||
+        'no-reply@nearevent.com';
+
+      await transporter.sendMail({
+        from: `"NearEvent" <${fromAddr}>`,
+        to: toEmail,
+        subject,
+        html,
+      });
+      console.log(`[Email Sent] ${type} OTP email successfully sent to ${toEmail}`);
+      return true;
+    } catch (err) {
+      console.error(`[Email Error] Failed to send ${type} email to ${toEmail}:`, err);
+      return false;
+    }
+  } else {
+    // Security Mandate: Never expose or log the OTP in server logs
+    console.log(`[Email Service Notice] SMTP/Email transporter not configured. Verification code generated securely for ${toEmail}.`);
+    return false;
+  }
+}
 
 // ==========================================
 // MONGOOSE SCHEMAS & MODELS
@@ -403,6 +499,9 @@ async function startServer() {
         attempts: 0,
       });
 
+      // Send OTP to user's email only
+      await sendOtpEmail(cleanEmail, verifyCode, 'verification');
+
       const token = jwt.sign(
         { userId: userObj.id, email: userObj.email, name: userObj.name, role: userObj.role },
         JWT_SECRET,
@@ -417,7 +516,7 @@ async function startServer() {
       );
 
       const { password: _, ...userWithoutPassword } = userObj;
-      res.status(201).json({ token, user: userWithoutPassword, simulatedOtp: verifyCode });
+      res.status(201).json({ token, user: userWithoutPassword });
     } catch (err) {
       console.error('Registration error:', err);
       res.status(500).json({ error: 'Registration failed' });
@@ -1033,17 +1132,46 @@ async function startServer() {
           expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
           attempts: 0,
         });
-        console.log(`[OTP Generated] Email: ${cleanEmail}, Code: ${generatedOtp}`);
+        
+        // Send OTP to user's email only
+        await sendOtpEmail(cleanEmail, generatedOtp, 'reset');
       }
 
       res.json({
         message: 'If an account with this email address exists, a 6-digit password reset code has been sent.',
-        simulatedOtp: generatedOtp,
         email: cleanEmail,
       });
     } catch (err) {
       console.error('Forgot password error:', err);
       res.status(500).json({ error: 'Failed to process password reset request' });
+    }
+  });
+
+  // Resend Email Verification Code Endpoint
+  app.post('/api/auth/resend-verification', authLimiter, async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: 'Email address is required' });
+      }
+
+      const cleanEmail = email.trim().toLowerCase();
+
+      // Generate a new 6-digit email verification code
+      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+      verificationOtpStore.set(cleanEmail, {
+        code: verifyCode,
+        expiresAt: Date.now() + 15 * 60 * 1000, // 15 mins
+        attempts: 0,
+      });
+
+      // Send OTP to user's email only
+      await sendOtpEmail(cleanEmail, verifyCode, 'verification');
+
+      res.json({ message: 'A new verification code has been sent to your email address.' });
+    } catch (err) {
+      console.error('Resend verification error:', err);
+      res.status(500).json({ error: 'Failed to resend verification code' });
     }
   });
 
