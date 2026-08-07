@@ -203,7 +203,7 @@ export async function createEvent(eventData: Partial<EventItem>): Promise<EventI
 /**
  * JWT Auth: Register User
  */
-export async function registerUser(data: { name: string; email: string; password: string }): Promise<{ token: string; user: User }> {
+export async function registerUser(data: { name: string; email: string; password: string }): Promise<{ token: string; user: User; simulatedOtp?: string }> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -381,7 +381,7 @@ export async function getCurrentUser(token?: string): Promise<User | null> {
 /**
  * Request Password Reset OTP
  */
-export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+export async function requestPasswordReset(email: string): Promise<{ message: string; simulatedOtp?: string }> {
   const res = await fetch('/api/auth/forgot-password', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -397,7 +397,7 @@ export async function requestPasswordReset(email: string): Promise<{ message: st
 /**
  * Resend Email Verification OTP
  */
-export async function resendVerificationCode(email: string): Promise<{ message: string }> {
+export async function resendVerificationCode(email: string): Promise<{ message: string; simulatedOtp?: string }> {
   const res = await fetch('/api/auth/resend-verification', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

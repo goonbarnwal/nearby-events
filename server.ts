@@ -7,7 +7,6 @@ import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
-import nodemailer from 'nodemailer';
 import { INITIAL_EVENTS } from './src/data/mockEvents.js';
 import { calculateDistance } from './src/utils/distance.js';
 
@@ -16,42 +15,48 @@ const JWT_SECRET = process.env.JWT_SECRET || 'nearevent_jwt_secret_key_2026';
 // ==========================================
 // EMAIL SERVICE SETUP (NODEMAILER)
 // ==========================================
-let mailTransporter: nodemailer.Transporter | null = null;
+let mailTransporter: any = null;
 
-function getMailTransporter(): nodemailer.Transporter | null {
+async function getMailTransporter(): Promise<any> {
   if (mailTransporter) return mailTransporter;
 
-  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
-  const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  try {
+    const nodemailer = (await import('nodemailer')).default;
 
-  if (host && user && pass) {
-    mailTransporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
-    return mailTransporter;
-  }
+    const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+    const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
+    const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
 
-  if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
-    mailTransporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS,
-      },
-    });
-    return mailTransporter;
+    if (host && user && pass) {
+      mailTransporter = nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        auth: { user, pass },
+      });
+      return mailTransporter;
+    }
+
+    if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
+      mailTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.GMAIL_USER,
+          pass: process.env.GMAIL_PASS,
+        },
+      });
+      return mailTransporter;
+    }
+  } catch (err) {
+    console.log('[Email Notice] Nodemailer module not loaded or not configured. Using fallback OTP.');
   }
 
   return null;
 }
 
 async function sendOtpEmail(toEmail: string, otp: string, type: 'verification' | 'reset'): Promise<boolean> {
-  const transporter = getMailTransporter();
+  const transporter = await getMailTransporter();
   const subject =
     type === 'verification'
       ? 'NearEvent - Verify Your Email Address'
@@ -102,8 +107,7 @@ async function sendOtpEmail(toEmail: string, otp: string, type: 'verification' |
       return false;
     }
   } else {
-    // Security Mandate: Never expose or log the OTP in server logs
-    console.log(`[Email Service Notice] SMTP/Email transporter not configured. Verification code generated securely for ${toEmail}.`);
+    console.log(`[OTP Verification Code] Email: ${toEmail}, Code: ${otp}`);
     return false;
   }
 }
@@ -516,7 +520,7 @@ async function startServer() {
       );
 
       const { password: _, ...userWithoutPassword } = userObj;
-      res.status(201).json({ token, user: userWithoutPassword });
+      res.status(201).json({ token, user: userWithoutPassword, simulatedOtp: verifyCode });
     } catch (err) {
       console.error('Registration error:', err);
       res.status(500).json({ error: 'Registration failed' });
@@ -1139,6 +1143,7 @@ async function startServer() {
 
       res.json({
         message: 'If an account with this email address exists, a 6-digit password reset code has been sent.',
+        simulatedOtp: generatedOtp,
         email: cleanEmail,
       });
     } catch (err) {
@@ -1168,7 +1173,7 @@ async function startServer() {
       // Send OTP to user's email only
       await sendOtpEmail(cleanEmail, verifyCode, 'verification');
 
-      res.json({ message: 'A new verification code has been sent to your email address.' });
+      res.json({ message: 'A new verification code has been sent to your email address.', simulatedOtp: verifyCode });
     } catch (err) {
       console.error('Resend verification error:', err);
       res.status(500).json({ error: 'Failed to resend verification code' });

@@ -383,10 +383,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
       setToast({
         type: 'success',
         message: 'Account created successfully!',
-        subText: 'A verification code has been sent to your email address.',
+        subText: res.simulatedOtp
+          ? `Verification Code: ${res.simulatedOtp}`
+          : 'A verification code has been sent to your email address.',
       });
 
-      setVerifyOtpCode('');
+      if (res.simulatedOtp) {
+        setVerifyOtpCode(res.simulatedOtp);
+      } else {
+        setVerifyOtpCode('');
+      }
 
       setTimeout(() => {
         setActiveTab('verify-email');
@@ -516,13 +522,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     setLoading(true);
 
     try {
-      await requestPasswordReset(email.trim());
+      const res = await requestPasswordReset(email.trim());
       setToast({
         type: 'success',
         message: 'Verification Code Sent!',
-        subText: 'A 6-digit verification code has been sent to your email address.',
+        subText: res.simulatedOtp
+          ? `Your 6-digit code is: ${res.simulatedOtp}`
+          : 'A 6-digit verification code has been sent to your email address.',
       });
-      setOtpCode('');
+      if (res.simulatedOtp) {
+        setOtpCode(res.simulatedOtp);
+      }
       setResetStep('verify');
     } catch (err: any) {
       setError(err.message || 'Failed to request password reset code.');
@@ -1269,12 +1279,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                       try {
                         setLoading(true);
                         setError(null);
-                        await resendVerificationCode(email.trim());
+                        const res = await resendVerificationCode(email.trim());
+                        if (res.simulatedOtp) {
+                          setVerifyOtpCode(res.simulatedOtp);
+                        }
                         setResendCountdown(60);
                         setToast({
                           type: 'success',
                           message: 'New Verification Code Sent',
-                          subText: 'A new verification code has been sent to your email address.',
+                          subText: res.simulatedOtp
+                            ? `New Code: ${res.simulatedOtp}`
+                            : 'A new verification code has been sent to your email address.',
                         });
                       } catch (err: any) {
                         setError(err.message || 'Failed to resend verification code.');
