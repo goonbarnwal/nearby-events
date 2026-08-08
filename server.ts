@@ -280,7 +280,8 @@ async function startServer() {
   const createRateLimiter = (maxRequests: number, windowMs: number) => {
     return (req: express.Request, res: express.Response, next: express.NextFunction) => {
       const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
-      const key = `${req.path}:${ip}`;
+      const path = req.originalUrl || req.path;
+      const key = `${path}:${ip}`;
       const now = Date.now();
       const record = rateLimitMap.get(key);
 
@@ -298,9 +299,27 @@ async function startServer() {
     };
   };
 
-  const generalLimiter = createRateLimiter(60, 60000); // 60 requests/min
+  const generalLimiter = createRateLimiter(60, 60000); // 60 requests/min for general API routes
   const apiLimiter = createRateLimiter(20, 60000); // 20 requests/min for AI & Geocode
   const authLimiter = createRateLimiter(10, 60000); // 10 requests/min for Auth (prevent brute force)
+
+  // Mount specific rate limiters first for dedicated rate limits
+  app.use('/api/auth', authLimiter);
+  app.use('/api/geocode', apiLimiter);
+  app.use('/api/gemini', apiLimiter);
+
+  // Mount general rate limiter for all other /api/* endpoints
+  app.use('/api', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const fullPath = req.originalUrl || req.url;
+    if (
+      fullPath.startsWith('/api/auth') ||
+      fullPath.startsWith('/api/geocode') ||
+      fullPath.startsWith('/api/gemini')
+    ) {
+      return next();
+    }
+    return generalLimiter(req, res, next);
+  });
 
   // Auth Verification Middleware
   const authenticateToken = (req: express.Request & { user?: any }, res: express.Response, next: express.NextFunction) => {
@@ -432,7 +451,7 @@ async function startServer() {
   const verificationOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
   // Register Endpoint
-  app.post('/api/auth/register', authLimiter, async (req, res) => {
+  app.post('/api/auth/register', async (req, res) => {
     try {
       const { name, email, password } = req.body;
       if (!name || !email || !password) {
@@ -528,7 +547,7 @@ async function startServer() {
   });
 
   // Login Endpoint
-  app.post('/api/auth/login', authLimiter, async (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     try {
       const { email, password, rememberMe } = req.body;
       if (!email || !password) {
@@ -986,7 +1005,7 @@ async function startServer() {
   });
 
   // Verify Email Endpoint
-  app.post('/api/auth/verify-email', authLimiter, async (req, res) => {
+  app.post('/api/auth/verify-email', async (req, res) => {
     try {
       const { email, otp } = req.body;
       if (!email || !otp) {
@@ -1110,7 +1129,7 @@ async function startServer() {
   const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
 
   // Request Forgot Password OTP Endpoint (Generates identical generic response to prevent account enumeration)
-  app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
+  app.post('/api/auth/forgot-password', async (req, res) => {
     try {
       const { email } = req.body;
       if (!email) {
@@ -1153,7 +1172,7 @@ async function startServer() {
   });
 
   // Resend Email Verification Code Endpoint
-  app.post('/api/auth/resend-verification', authLimiter, async (req, res) => {
+  app.post('/api/auth/resend-verification', async (req, res) => {
     try {
       const { email } = req.body;
       if (!email) {
@@ -1181,7 +1200,7 @@ async function startServer() {
   });
 
   // Reset Password with OTP Endpoint (Throttled & capped at 5 attempts)
-  app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
+  app.post('/api/auth/reset-password', async (req, res) => {
     try {
       const { email, otp, newPassword } = req.body;
       if (!email || !otp || !newPassword) {
@@ -2278,7 +2297,7 @@ function generateEventsForCity(cityName: string) {
   });
 
   // Reverse Geocoding via Nominatim (Rate limited)
-  app.get('/api/geocode/reverse', apiLimiter, async (req, res) => {
+  app.get('/api/geocode/reverse', async (req, res) => {
     const { lat, lon } = req.query;
     if (!lat || !lon) {
       return res.status(400).json({ error: 'lat and lon are required' });
@@ -2315,7 +2334,7 @@ function generateEventsForCity(cityName: string) {
   });
 
   // Search Location via Nominatim (Rate limited)
-  app.get('/api/geocode/search', apiLimiter, async (req, res) => {
+  app.get('/api/geocode/search', async (req, res) => {
     const { q } = req.query;
     if (!q || typeof q !== 'string') {
       return res.status(400).json({ error: 'q search query parameter required' });
@@ -2381,7 +2400,7 @@ function generateEventsForCity(cityName: string) {
   });
 
   // Gemini AI: Summarize Event Description (Auth + Rate Limited)
-  app.post('/api/gemini/summarize', authenticateToken, apiLimiter, async (req, res) => {
+  app.post('/api/gemini/summarize', authenticateToken, async (req, res) => {
     const { description } = req.body;
     if (!description) {
       return res.status(400).json({ error: 'Description is required' });
@@ -2407,7 +2426,7 @@ function generateEventsForCity(cityName: string) {
   });
 
   // Gemini AI: Personalized Recommendations (Auth + Rate Limited)
-  app.post('/api/gemini/recommend', authenticateToken, apiLimiter, async (req, res) => {
+  app.post('/api/gemini/recommend', authenticateToken, async (req, res) => {
     const { city = 'Pune', userInterests = ['Tech', 'Startup', 'Music'] } = req.body;
 
     if (!ai) {
