@@ -13,106 +13,6 @@ import { calculateDistance } from './src/utils/distance.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'nearevent_jwt_secret_key_2026';
 
 // ==========================================
-// EMAIL SERVICE SETUP (NODEMAILER)
-// ==========================================
-let mailTransporter: any = null;
-
-async function getMailTransporter(): Promise<any> {
-  if (mailTransporter) return mailTransporter;
-
-  try {
-    const nodemailer = (await import('nodemailer')).default;
-
-    const host = process.env.SMTP_HOST || process.env.EMAIL_HOST;
-    const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
-    const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-    const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
-
-    if (host && user && pass) {
-      mailTransporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: { user, pass },
-      });
-      return mailTransporter;
-    }
-
-    if (process.env.GMAIL_USER && process.env.GMAIL_PASS) {
-      mailTransporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_PASS,
-        },
-      });
-      return mailTransporter;
-    }
-  } catch (err) {
-    console.log('[Email Notice] Nodemailer module not loaded or not configured. Using fallback OTP.');
-  }
-
-  return null;
-}
-
-async function sendOtpEmail(toEmail: string, otp: string, type: 'verification' | 'reset'): Promise<boolean> {
-  const transporter = await getMailTransporter();
-  const subject =
-    type === 'verification'
-      ? 'NearEvent - Verify Your Email Address'
-      : 'NearEvent - Password Reset Verification Code';
-
-  const html = `
-    <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
-      <h2 style="color: #2563eb; text-align: center; margin-bottom: 20px; font-weight: 800;">NearEvent 📍</h2>
-      <p style="font-size: 15px; color: #334155;">Hello,</p>
-      <p style="font-size: 14px; color: #475569; line-height: 1.5;">
-        ${
-          type === 'verification'
-            ? 'Thank you for creating an account with NearEvent! Use the verification code below to complete your registration.'
-            : 'We received a request to reset your NearEvent account password. Use the verification code below to set a new password.'
-        }
-      </p>
-      <div style="background-color: #f1f5f9; padding: 18px; border-radius: 12px; text-align: center; margin: 24px 0;">
-        <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #0f172a; font-family: monospace;">${otp}</span>
-      </div>
-      <p style="font-size: 12px; color: #64748b; text-align: center;">
-        This verification code expires in 15 minutes. If you did not request this code, please ignore this email.
-      </p>
-      <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 24px;" />
-      <p style="font-size: 11px; color: #94a3b8; text-align: center;">&copy; ${new Date().getFullYear()} NearEvent. All rights reserved.</p>
-    </div>
-  `;
-
-  if (transporter) {
-    try {
-      const fromAddr =
-        process.env.SMTP_FROM ||
-        process.env.EMAIL_FROM ||
-        process.env.SMTP_USER ||
-        process.env.EMAIL_USER ||
-        process.env.GMAIL_USER ||
-        'no-reply@nearevent.com';
-
-      await transporter.sendMail({
-        from: `"NearEvent" <${fromAddr}>`,
-        to: toEmail,
-        subject,
-        html,
-      });
-      console.log(`[Email Sent] ${type} OTP email successfully sent to ${toEmail}`);
-      return true;
-    } catch (err) {
-      console.error(`[Email Error] Failed to send ${type} email to ${toEmail}:`, err);
-      return false;
-    }
-  } else {
-    console.log(`[OTP Verification Code] Email: ${toEmail}, Code: ${otp}`);
-    return false;
-  }
-}
-
-// ==========================================
 // MONGOOSE SCHEMAS & MODELS
 // ==========================================
 const UserSchema = new mongoose.Schema(
@@ -461,9 +361,7 @@ async function startServer() {
   // AUTHENTICATION API ROUTES (JWT + GOOGLE/GITHUB/APPLE OAUTH)
   // ==========================================
 
-  // Store for verification OTP codes: email -> { code, expiresAt, attempts }
-  const verificationOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
-
+  
   // Register Endpoint
   app.post('/api/auth/register', async (req, res) => {
     try {
@@ -528,17 +426,6 @@ async function startServer() {
         usersMemoryDB.push(userObj);
       }
 
-      // Generate a 6-digit email verification code
-      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
-      verificationOtpStore.set(cleanEmail, {
-        code: verifyCode,
-        expiresAt: Date.now() + 15 * 60 * 1000, // 15 mins
-        attempts: 0,
-      });
-
-      // Send OTP to user's email only
-      await sendOtpEmail(cleanEmail, verifyCode, 'verification');
-
       const token = jwt.sign(
         { userId: userObj.id, email: userObj.email, name: userObj.name, role: userObj.role },
         JWT_SECRET,
@@ -553,7 +440,7 @@ async function startServer() {
       );
 
       const { password: _, ...userWithoutPassword } = userObj;
-      res.status(201).json({ token, user: userWithoutPassword, simulatedOtp: verifyCode });
+      res.status(201).json({ token, user: userWithoutPassword });
     } catch (err) {
       console.error('Registration error:', err);
       res.status(500).json({ error: 'Registration failed' });
@@ -1018,59 +905,6 @@ async function startServer() {
     res.json({ message: 'Logged out successfully' });
   });
 
-  // Verify Email Endpoint
-  app.post('/api/auth/verify-email', async (req, res) => {
-    try {
-      const { email, otp } = req.body;
-      if (!email || !otp) {
-        return res.status(400).json({ error: 'Email and verification code are required' });
-      }
-
-      const cleanEmail = email.trim().toLowerCase();
-      const stored = verificationOtpStore.get(cleanEmail);
-
-      if (!stored || Date.now() > stored.expiresAt) {
-        return res.status(400).json({ error: 'Verification code has expired. Please request a new code.' });
-      }
-
-      if (stored.attempts >= 5) {
-        verificationOtpStore.delete(cleanEmail);
-        return res.status(429).json({ error: 'Too many failed attempts. Verification code invalidated. Please request a new code.' });
-      }
-
-      if (stored.code !== otp.trim()) {
-        stored.attempts = (stored.attempts || 0) + 1;
-        return res.status(400).json({ error: 'Invalid verification code. Please check your code.' });
-      }
-
-      let updatedUser: any = null;
-      if (isMongoConnected) {
-        await UserModel.updateOne({ email: cleanEmail } as any, { isEmailVerified: true });
-        const u: any = await UserModel.findOne({ email: cleanEmail } as any);
-        if (u) {
-          updatedUser = {
-            id: u._id.toString(),
-            name: u.name,
-            email: u.email,
-            role: u.role,
-            isEmailVerified: true,
-          };
-        }
-      } else {
-        const u = usersMemoryDB.find((x) => x.email.toLowerCase() === cleanEmail);
-        if (u) {
-          u.isEmailVerified = true;
-          updatedUser = { ...u };
-        }
-      }
-
-      verificationOtpStore.delete(cleanEmail);
-      res.json({ message: 'Email verified successfully!', user: updatedUser });
-    } catch (err) {
-      res.status(500).json({ error: 'Email verification failed' });
-    }
-  });
-
   // Verify Token Endpoint
   app.get('/api/auth/me', async (req, res) => {
     let token = req.headers.authorization && req.headers.authorization.startsWith('Bearer ')
@@ -1138,136 +972,6 @@ async function startServer() {
       res.status(401).json({ error: 'Invalid token' });
     }
   });
-
-  // Store for OTP reset tokens: email -> { code, expiresAt, attempts }
-  const otpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();
-
-  // Request Forgot Password OTP Endpoint (Generates identical generic response to prevent account enumeration)
-  app.post('/api/auth/forgot-password', async (req, res) => {
-    try {
-      const { email } = req.body;
-      if (!email) {
-        return res.status(400).json({ error: 'Email address is required' });
-      }
-
-      const cleanEmail = email.trim().toLowerCase();
-      let userFound = false;
-
-      if (isMongoConnected) {
-        const user = await UserModel.findOne({ email: cleanEmail } as any);
-        if (user) userFound = true;
-      } else {
-        const user = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
-        if (user) userFound = true;
-      }
-
-      let generatedOtp: string | undefined = undefined;
-      if (userFound) {
-        generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-        otpStore.set(cleanEmail, {
-          code: generatedOtp,
-          expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
-          attempts: 0,
-        });
-        
-        // Send OTP to user's email only
-        await sendOtpEmail(cleanEmail, generatedOtp, 'reset');
-      }
-
-      res.json({
-        message: 'If an account with this email address exists, a 6-digit password reset code has been sent.',
-        simulatedOtp: generatedOtp,
-        email: cleanEmail,
-      });
-    } catch (err) {
-      console.error('Forgot password error:', err);
-      res.status(500).json({ error: 'Failed to process password reset request' });
-    }
-  });
-
-  // Resend Email Verification Code Endpoint
-  app.post('/api/auth/resend-verification', async (req, res) => {
-    try {
-      const { email } = req.body;
-      if (!email) {
-        return res.status(400).json({ error: 'Email address is required' });
-      }
-
-      const cleanEmail = email.trim().toLowerCase();
-
-      // Generate a new 6-digit email verification code
-      const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
-      verificationOtpStore.set(cleanEmail, {
-        code: verifyCode,
-        expiresAt: Date.now() + 15 * 60 * 1000, // 15 mins
-        attempts: 0,
-      });
-
-      // Send OTP to user's email only
-      await sendOtpEmail(cleanEmail, verifyCode, 'verification');
-
-      res.json({ message: 'A new verification code has been sent to your email address.', simulatedOtp: verifyCode });
-    } catch (err) {
-      console.error('Resend verification error:', err);
-      res.status(500).json({ error: 'Failed to resend verification code' });
-    }
-  });
-
-  // Reset Password with OTP Endpoint (Throttled & capped at 5 attempts)
-  app.post('/api/auth/reset-password', async (req, res) => {
-    try {
-      const { email, otp, newPassword } = req.body;
-      if (!email || !otp || !newPassword) {
-        return res.status(400).json({ error: 'Email, OTP code, and new password are required' });
-      }
-
-      if (newPassword.length < 6) {
-        return res.status(400).json({ error: 'New password must be at least 6 characters long' });
-      }
-
-      const cleanEmail = email.trim().toLowerCase();
-      const storedOtp = otpStore.get(cleanEmail);
-
-      if (!storedOtp) {
-        return res.status(400).json({ error: 'Invalid or expired password reset request. Please request a new OTP.' });
-      }
-
-      if (Date.now() > storedOtp.expiresAt) {
-        otpStore.delete(cleanEmail);
-        return res.status(400).json({ error: 'OTP code has expired. Please request a new OTP.' });
-      }
-
-      if (storedOtp.attempts >= 5) {
-        otpStore.delete(cleanEmail);
-        return res.status(429).json({ error: 'Too many failed attempts. OTP code invalidated. Please request a new OTP.' });
-      }
-
-      if (storedOtp.code !== otp.trim()) {
-        storedOtp.attempts = (storedOtp.attempts || 0) + 1;
-        return res.status(400).json({ error: 'Invalid OTP code. Please check the 6-digit verification code.' });
-      }
-
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      if (isMongoConnected) {
-        await UserModel.updateOne({ email: cleanEmail } as any, { password: hashedPassword });
-      } else {
-        const user = usersMemoryDB.find((u) => u.email.toLowerCase() === cleanEmail);
-        if (user) {
-          user.password = hashedPassword;
-        }
-      }
-
-      // Clear the OTP
-      otpStore.delete(cleanEmail);
-
-      res.json({ message: 'Password reset successfully! You can now log in with your new password.' });
-    } catch (err) {
-      console.error('Reset password error:', err);
-      res.status(500).json({ error: 'Failed to reset password' });
-    }
-  });
-
 
   // ==========================================
   // EVENT API ROUTES
@@ -2441,7 +2145,7 @@ function generateEventsForCity(cityName: string) {
 
   // Gemini AI: Personalized Recommendations (Auth + Rate Limited)
   app.post('/api/gemini/recommend', authenticateToken, async (req, res) => {
-    const { city = 'Pune', userInterests = ['Tech', 'Startup', 'Music'] } = req.body;
+    const { city = '', userInterests = ['Tech', 'Startup', 'Music'] } = req.body;
 
     if (!ai) {
       return res.json({

@@ -28,10 +28,6 @@ import {
   googleAuthUser,
   githubAuthUser,
   appleAuthUser,
-  requestPasswordReset,
-  resetPassword,
-  verifyEmail,
-  resendVerificationCode,
   getAuthConfig,
 } from '../services/api';
 
@@ -41,7 +37,7 @@ interface AuthModalProps {
   initialMessage?: string;
 }
 
-type AuthTab = 'signin' | 'signup' | 'forgot-password' | 'verify-email';
+type AuthTab = 'signin' | 'signup';
 
 export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, initialMessage }) => {
   const [activeTab, setActiveTab] = useState<AuthTab>('signin');
@@ -71,16 +67,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
   // Visibility toggles
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // Forgot Password / OTP states
-  const [resetStep, setResetStep] = useState<'request' | 'verify'>('request');
-  const [otpCode, setOtpCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-
-  // Email Verification states
-  const [verifyOtpCode, setVerifyOtpCode] = useState('');
-  const [resendCountdown, setResendCountdown] = useState(0);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -119,14 +105,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
       setLoading(false);
     }
   };
-
-  // Countdown timer for resending verification code
-  useEffect(() => {
-    if (resendCountdown > 0) {
-      const timer = setTimeout(() => setResendCountdown(resendCountdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [resendCountdown]);
 
   // Saved user helper
   const getSavedUser = (): { name: string; email: string } | null => {
@@ -402,24 +380,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
       const res = await registerUser({ name, email, password });
       saveUserToLocal({ name: res.user.name, email: res.user.email });
 
-      // Automatically open email verification tab
-      setToast({
+            setToast({
         type: 'success',
-        message: 'Account created successfully!',
-        subText: res.simulatedOtp
-          ? `Verification Code: ${res.simulatedOtp}`
-          : 'A verification code has been sent to your email address.',
+        message: 'Account created successfully!'
       });
-
-      if (res.simulatedOtp) {
-        setVerifyOtpCode(res.simulatedOtp);
-      } else {
-        setVerifyOtpCode('');
-      }
-
       setTimeout(() => {
-        setActiveTab('verify-email');
-        setResendCountdown(60);
+        onLoginSuccess(res.user as UserType);
       }, 1000);
     } catch (err: any) {
       setError(err.message || 'Registration failed. An account with this email may already exist.');
@@ -531,116 +497,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     }
   };
 
-  // Handle Forgot Password OTP Request
-  const handleRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) {
-      setError('Please enter your email address.');
-      return;
-    }
-    setError(null);
-    setLoading(true);
-
-    try {
-      const res = await requestPasswordReset(email.trim());
-      setToast({
-        type: 'success',
-        message: 'Verification Code Sent!',
-        subText: res.simulatedOtp
-          ? `Your 6-digit code is: ${res.simulatedOtp}`
-          : 'A 6-digit verification code has been sent to your email address.',
-      });
-      if (res.simulatedOtp) {
-        setOtpCode(res.simulatedOtp);
-      }
-      setResetStep('verify');
-    } catch (err: any) {
-      setError(err.message || 'Failed to request password reset code.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle Password Reset Submit
-  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otpCode.trim() || !newPassword) {
-      setError('Please enter the OTP code and new password.');
-      return;
-    }
-    if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters long.');
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    setError(null);
-    setLoading(true);
-
-    try {
-      await resetPassword({
-        email: email.trim(),
-        otp: otpCode.trim(),
-        newPassword,
-      });
-
-      setToast({
-        type: 'success',
-        message: 'Password Reset Successful!',
-        subText: 'You can now sign in with your new password.',
-      });
-
-      setTimeout(() => {
-        setActiveTab('signin');
-        setPassword(newPassword);
-        setResetStep('request');
-        setOtpCode('');
-        setNewPassword('');
-        setConfirmNewPassword('');
-      }, 1200);
-    } catch (err: any) {
-      setError(err.message || 'Failed to reset password. Please verify the code.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle Verify Email Submit
-  const handleVerifyEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!verifyOtpCode.trim()) {
-      setError('Please enter the 6-digit verification code.');
-      return;
-    }
-
-    setError(null);
-    setLoading(true);
-
-    try {
-      const res = await verifyEmail(email.trim(), verifyOtpCode.trim());
-      setToast({
-        type: 'success',
-        message: 'Email Verified!',
-        subText: 'Your account is now fully active.',
-      });
-
-      setTimeout(() => {
-        if (res.user) {
-          onLoginSuccess(res.user as UserType);
-        } else {
-          setActiveTab('signin');
-        }
-      }, 1000);
-    } catch (err: any) {
-      setError(err.message || 'Verification failed. Please check the 6-digit code.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const savedUser = getSavedUser();
 
   return (
@@ -658,7 +514,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
             <X className="w-5 h-5 stroke-[2.5]" />
           </button>
 
-          {activeTab !== 'forgot-password' && activeTab !== 'verify-email' && (
+          {true && (
             <div className="space-y-4 text-center">
               {/* Top Pill Tab Switcher */}
               <div className="inline-flex items-center p-1 bg-slate-100 dark:bg-slate-800/80 rounded-full w-full max-w-xs mx-auto border border-slate-200/50 dark:border-slate-700/50">
@@ -905,16 +761,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                   </button>
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('forgot-password');
-                    setError(null);
-                  }}
-                  className="block w-full text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:underline cursor-pointer"
-                >
-                  Forgot your password?
-                </button>
+                
               </div>
             </div>
           ) : activeTab === 'signup' ? (
@@ -1063,346 +910,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
                 </button>
               </p>
             </div>
-          ) : activeTab === 'forgot-password' ? (
-            /* TAB 2: SIGN UP */
-            <div className="space-y-4 animate-in fade-in duration-200">
-              
-              <form onSubmit={handleSignUpSubmit} className="space-y-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Your Name
-                  </label>
-                  <div className="relative">
-                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="e.g. Rahul Sharma"
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                      Password
-                    </label>
-                    {password && (
-                      <span className={`text-[10px] font-bold ${pwdStrength.text}`}>
-                        {pwdStrength.label}
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="At least 6 characters"
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  {/* Password Strength Indicator Bar */}
-                  {password && (
-                    <div className="mt-1.5 space-y-1">
-                      <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex gap-0.5">
-                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 1 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 2 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 3 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                        <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 4 ? pwdStrength.color : 'bg-slate-200 dark:bg-slate-700'}`} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                    Confirm Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Repeat your password"
-                      className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {confirmPassword && password !== confirmPassword && (
-                    <p className="text-[10px] text-rose-500 font-bold mt-1">Passwords do not match</p>
-                  )}
-                  {confirmPassword && password === confirmPassword && (
-                    <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 flex items-center gap-1">
-                      <Check className="w-3 h-3" /> Passwords match
-                    </p>
-                  )}
-                </div>
-
-                <div className="pt-1">
-                  <label className="flex items-start gap-2 cursor-pointer text-[11px] text-slate-600 dark:text-slate-400 leading-tight select-none">
-                    <input
-                      type="checkbox"
-                      checked={acceptTerms}
-                      onChange={(e) => setAcceptTerms(e.target.checked)}
-                      className="w-4 h-4 rounded-md text-blue-600 focus:ring-blue-500 border-slate-300 mt-0.5"
-                    />
-                    <span>
-                      I agree to the{' '}
-                      <span className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Terms of Service</span> and{' '}
-                      <span className="text-blue-600 dark:text-blue-400 font-bold hover:underline">Privacy Policy</span>.
-                    </span>
-                  </label>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || !acceptTerms}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm rounded-full shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] cursor-pointer"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Sign up'}
-                </button>
-              </form>
-
-              {/* Bottom Toggle Footer */}
-              <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
-                Already a member?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('signin');
-                    setError(null);
-                  }}
-                  className="font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                >
-                  Log in
-                </button>
-              </p>
-            </div>
-          ) : activeTab === 'forgot-password' ? (
-            /* TAB 3: FORGOT PASSWORD */
-            <div className="space-y-4 animate-in fade-in duration-200">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('signin');
-                  setError(null);
-                }}
-                className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-bold"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
-              </button>
-
-              <div>
-                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <KeyRound className="w-4 h-4 text-blue-600" /> Reset Password
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  {resetStep === 'request'
-                    ? 'Enter your account email to receive a 6-digit OTP code.'
-                    : `Enter the 6-digit code sent to ${email}`}
-                </p>
-              </div>
-
-              {resetStep === 'request' ? (
-                <form onSubmit={handleRequestOtp} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                      Account Email
-                    </label>
-                    <div className="relative">
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="you@example.com"
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Verification OTP'}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleResetPasswordSubmit} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                      6-Digit OTP Code
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="123456"
-                      className="w-full px-3.5 py-2.5 text-center tracking-widest text-base font-mono bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Minimum 6 characters"
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={confirmNewPassword}
-                      onChange={(e) => setConfirmNewPassword(e.target.value)}
-                      placeholder="Repeat new password"
-                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 flex items-center justify-center gap-2"
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirm New Password'}
-                  </button>
-                </form>
-              )}
-            </div>
-          ) : (
-            /* TAB 4: EMAIL VERIFICATION */
-            <div className="space-y-4 animate-in fade-in duration-200 text-center">
-              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto shadow-sm">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-
-              <div>
-                <h4 className="text-base font-extrabold text-slate-900 dark:text-white">
-                  Verify Your Email
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  We sent a 6-digit code to <span className="font-bold text-slate-700 dark:text-slate-200">{email}</span>
-                </p>
-              </div>
-
-              <form onSubmit={handleVerifyEmailSubmit} className="space-y-4">
-                <div>
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={verifyOtpCode}
-                    onChange={(e) => setVerifyOtpCode(e.target.value)}
-                    placeholder="123456"
-                    className="w-full px-4 py-3 text-center tracking-[0.5em] text-lg font-mono bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-extrabold"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
-                >
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
-                </button>
-              </form>
-
-              <div className="pt-2 text-xs text-slate-500 dark:text-slate-400">
-                Didn't receive the code?{' '}
-                {resendCountdown > 0 ? (
-                  <span className="font-bold text-slate-400">Resend in {resendCountdown}s</span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!email.trim()) {
-                        setError('Please enter your email address.');
-                        return;
-                      }
-                      try {
-                        setLoading(true);
-                        setError(null);
-                        const res = await resendVerificationCode(email.trim());
-                        if (res.simulatedOtp) {
-                          setVerifyOtpCode(res.simulatedOtp);
-                        }
-                        setResendCountdown(60);
-                        setToast({
-                          type: 'success',
-                          message: 'New Verification Code Sent',
-                          subText: res.simulatedOtp
-                            ? `New Code: ${res.simulatedOtp}`
-                            : 'A new verification code has been sent to your email address.',
-                        });
-                      } catch (err: any) {
-                        setError(err.message || 'Failed to resend verification code.');
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                    className="text-blue-600 dark:text-blue-400 font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <RefreshCw className="w-3 h-3" /> Resend Code
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
+          
+          ) : null}
 
         </div>
 

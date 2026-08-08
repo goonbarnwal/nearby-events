@@ -23,13 +23,13 @@ export default function App() {
   // Navigation & View tab state
   const [activeTab, setActiveTab] = useState<'home' | 'events' | 'map' | 'create' | 'my-events'>('home');
 
-  // User Location State (Default Pune)
+  // User Location State
   const [location, setLocation] = useState<UserLocation>({
-    latitude: 18.5204,
-    longitude: 73.8567,
-    city: 'Pune',
-    state: 'Maharashtra',
-    country: 'India',
+    latitude: 0,
+    longitude: 0,
+    city: 'Location not detected',
+    state: '',
+    country: '',
     isDetected: false,
   });
   const [isLocating, setIsLocating] = useState(false);
@@ -37,7 +37,7 @@ export default function App() {
   // Filters State
   const [filters, setFilters] = useState<FilterState>({
     searchQuery: '',
-    locationQuery: 'Pune',
+    locationQuery: '',
     category: 'All',
     dateFilter: 'all',
     radiusKm: 100,
@@ -167,7 +167,7 @@ export default function App() {
   // Handle Geolocation Request
   const handleRequestLocation = () => {
     if (!navigator.geolocation) {
-      setLocationError('Geolocation is not supported by your browser. Defaulting to Pune.');
+      setLocationError('Geolocation is not supported by your browser.');
       return;
     }
     setIsLocating(true);
@@ -184,7 +184,7 @@ export default function App() {
       (err) => {
         console.warn('Geolocation position error:', err);
         setIsLocating(false);
-        setLocationError('Could not access current location. Searching Pune by default.');
+        setLocationError('Could not access current location.');
       },
       { timeout: 8000 }
     );
@@ -277,11 +277,11 @@ export default function App() {
         subtype: eventData.subtype || 'Meetup',
         venue: eventData.venue || 'City Center',
         address: eventData.address || '',
-        city: eventData.city || 'Pune',
-        state: eventData.state || 'Maharashtra',
-        country: eventData.country || 'India',
-        latitude: eventData.latitude || 18.5204,
-        longitude: eventData.longitude || 73.8567,
+        city: eventData.city || '',
+        state: eventData.state || '',
+        country: eventData.country || '',
+        latitude: eventData.latitude || 0,
+        longitude: eventData.longitude || 0,
         startDate: eventData.startDate || new Date().toISOString().split('T')[0],
         timeString: eventData.timeString || '10:00 AM',
         organizer: eventData.organizer || (user?.name || 'Community Organizer'),

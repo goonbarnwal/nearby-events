@@ -194,7 +194,7 @@ export async function createEvent(eventData: Partial<EventItem>): Promise<EventI
 /**
  * JWT Auth: Register User
  */
-export async function registerUser(data: { name: string; email: string; password: string }): Promise<{ token: string; user: User; simulatedOtp?: string }> {
+export async function registerUser(data: { name: string; email: string; password: string }): Promise<{ token: string; user: User }> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -338,22 +338,6 @@ export async function logoutUser(): Promise<boolean> {
   }
 }
 
-/**
- * Verify User Email with OTP
- */
-export async function verifyEmail(email: string, otp: string): Promise<{ message: string; user?: User }> {
-  const res = await fetch('/api/auth/verify-email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ email, otp }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Email verification failed');
-  }
-  return await res.json();
-}
 
 /**
  * JWT Auth: Verify Token and fetch current user using HttpOnly cookie
@@ -371,56 +355,6 @@ export async function getCurrentUser(): Promise<User | null> {
   return null;
 }
 
-/**
- * Request Password Reset OTP
- */
-export async function requestPasswordReset(email: string): Promise<{ message: string; simulatedOtp?: string }> {
-  const res = await fetch('/api/auth/forgot-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ email }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Failed to request password reset');
-  }
-  return await res.json();
-}
-
-/**
- * Resend Email Verification OTP
- */
-export async function resendVerificationCode(email: string): Promise<{ message: string; simulatedOtp?: string }> {
-  const res = await fetch('/api/auth/resend-verification', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ email }),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Failed to resend verification code');
-  }
-  return await res.json();
-}
-
-/**
- * Reset Password with OTP
- */
-export async function resetPassword(data: { email: string; otp: string; newPassword: string }): Promise<{ message: string }> {
-  const res = await fetch('/api/auth/reset-password', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error || 'Failed to reset password');
-  }
-  return await res.json();
-}
 
 /**
  * Fetch events created by the logged in user.
