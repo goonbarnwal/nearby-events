@@ -102,9 +102,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     setError(null);
     try {
       const res = await googleAuthUser({ credential });
-      if (res.token) {
-        localStorage.setItem('nearevent_jwt', res.token);
-      }
       saveUserToLocal({ name: res.user.name, email: res.user.email });
 
       setToast({
@@ -184,9 +181,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
             code: code,
           });
 
-          if (res.token) {
-            localStorage.setItem('nearevent_jwt', res.token);
-          }
           saveUserToLocal({ name: res.user.name, email: res.user.email });
 
           setToast({
@@ -266,7 +260,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
             if (tokenResponse.access_token) {
               try {
                 const res = await googleAuthUser({ accessToken: tokenResponse.access_token });
-                if (res.token) localStorage.setItem('nearevent_jwt', res.token);
                 saveUserToLocal(res.user);
                 setToast({
                   type: 'success',
@@ -292,7 +285,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
             if (response.credential) {
               try {
                 const res = await googleAuthUser({ credential: response.credential });
-                if (res.token) localStorage.setItem('nearevent_jwt', res.token);
                 saveUserToLocal(res.user);
                 onLoginSuccess(res.user);
               } catch (err: any) {
@@ -356,9 +348,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     setLoading(true);
     try {
       const res = await loginUser({ email, password, rememberMe });
-      if (res.token) {
-        localStorage.setItem('nearevent_jwt', res.token);
-      }
       saveUserToLocal({ name: res.user.name, email: res.user.email });
 
       setToast({
@@ -411,9 +400,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
     setLoading(true);
     try {
       const res = await registerUser({ name, email, password });
-      if (res.token) {
-        localStorage.setItem('nearevent_jwt', res.token);
-      }
       saveUserToLocal({ name: res.user.name, email: res.user.email });
 
       // Automatically open email verification tab
@@ -459,7 +445,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         name: targetName,
         email: targetEmail,
       });
-      if (res.token) localStorage.setItem('nearevent_jwt', res.token);
       saveUserToLocal({ name: res.user.name, email: res.user.email });
 
       setToast({
@@ -494,7 +479,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         name: targetName,
         email: targetEmail,
       });
-      if (res.token) localStorage.setItem('nearevent_jwt', res.token);
       saveUserToLocal({ name: res.user.name, email: res.user.email });
 
       setToast({
@@ -529,7 +513,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onLoginSuccess, i
         name: targetName,
         email: targetEmail,
       });
-      if (res.token) localStorage.setItem('nearevent_jwt', res.token);
       saveUserToLocal({ name: res.user.name, email: res.user.email });
 
       setToast({

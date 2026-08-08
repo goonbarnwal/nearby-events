@@ -22,7 +22,7 @@ export async function fetchEvents(params: {
     if (params.radiusKm) query.set('radius', params.radiusKm.toString());
     if (params.dateFilter && params.dateFilter !== 'all') query.set('date', params.dateFilter);
 
-    const res = await fetch(`/api/events?${query.toString()}`);
+    const res = await fetch(`/api/events?${query.toString()}`, { credentials: 'include' });
     if (!res.ok) throw new Error('Failed to fetch events');
     const data = await res.json();
     return data.events || [];
@@ -37,7 +37,7 @@ export async function fetchEvents(params: {
  */
 export async function reverseGeocode(lat: number, lon: number): Promise<UserLocation> {
   try {
-    const res = await fetch(`/api/geocode/reverse?lat=${lat}&lon=${lon}`);
+    const res = await fetch(`/api/geocode/reverse?lat=${lat}&lon=${lon}`, { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       return {
@@ -104,7 +104,7 @@ export async function searchLocation(query: string): Promise<{
 
   // 2. Fetch from backend geocoding endpoint
   try {
-    const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(query)}`);
+    const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(query)}`, { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       if (data && data.latitude) {
@@ -130,13 +130,10 @@ export async function searchLocation(query: string): Promise<{
  */
 export async function generateAiSummary(eventId: string, description: string): Promise<string> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
     const res = await fetch('/api/gemini/summarize', {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ eventId, description }),
     });
     if (res.ok) {
@@ -154,13 +151,10 @@ export async function generateAiSummary(eventId: string, description: string): P
  */
 export async function getAiRecommendations(userInterests: string[], city: string): Promise<AIRecommendationResponse> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
     const res = await fetch('/api/gemini/recommend', {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ userInterests, city }),
     });
     if (res.ok) {
@@ -181,13 +175,10 @@ export async function getAiRecommendations(userInterests: string[], city: string
  */
 export async function createEvent(eventData: Partial<EventItem>): Promise<EventItem | null> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
     const res = await fetch('/api/events', {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(eventData),
     });
     if (res.ok) {
@@ -207,6 +198,7 @@ export async function registerUser(data: { name: string; email: string; password
   const res = await fetch('/api/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -223,6 +215,7 @@ export async function loginUser(data: { email: string; password: string; remembe
   const res = await fetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -237,7 +230,7 @@ export async function loginUser(data: { email: string; password: string; remembe
  */
 export async function getAuthConfig(): Promise<{ googleClientId: string }> {
   try {
-    const res = await fetch('/api/auth/config');
+    const res = await fetch('/api/auth/config', { credentials: 'include' });
     if (res.ok) return await res.json();
   } catch (err) {
     console.warn('Failed to fetch auth config:', err);
@@ -261,6 +254,7 @@ export async function googleAuthUser(data: {
   const res = await fetch('/api/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -277,6 +271,7 @@ export async function githubAuthUser(data: { name?: string; email?: string; gith
   const res = await fetch('/api/auth/github', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -293,6 +288,7 @@ export async function appleAuthUser(data: { name?: string; email?: string; apple
   const res = await fetch('/api/auth/apple', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -307,19 +303,12 @@ export async function appleAuthUser(data: { name?: string; email?: string; apple
  */
 export async function refreshAuthToken(): Promise<{ token: string; user: User } | null> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
     const res = await fetch('/api/auth/refresh', {
       method: 'POST',
-      headers,
+      credentials: 'include',
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.token) {
-        localStorage.setItem('nearevent_jwt', data.token);
-      }
       return data;
     }
   } catch (err) {
@@ -333,8 +322,10 @@ export async function refreshAuthToken(): Promise<{ token: string; user: User } 
  */
 export async function logoutUser(): Promise<boolean> {
   try {
-    localStorage.removeItem('nearevent_jwt');
-    const res = await fetch('/api/auth/logout', { method: 'POST' });
+    const res = await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
     return res.ok;
   } catch (err) {
     console.warn('Logout error:', err);
@@ -349,6 +340,7 @@ export async function verifyEmail(email: string, otp: string): Promise<{ message
   const res = await fetch('/api/auth/verify-email', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ email, otp }),
   });
   if (!res.ok) {
@@ -359,15 +351,11 @@ export async function verifyEmail(email: string, otp: string): Promise<{ message
 }
 
 /**
- * JWT Auth: Verify Token and fetch current user
+ * JWT Auth: Verify Token and fetch current user using HttpOnly cookie
  */
-export async function getCurrentUser(token?: string): Promise<User | null> {
+export async function getCurrentUser(): Promise<User | null> {
   try {
-    const authToken = token || localStorage.getItem('nearevent_jwt');
-    const headers: Record<string, string> = {};
-    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-
-    const res = await fetch('/api/auth/me', { headers });
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       return data.user;
@@ -385,6 +373,7 @@ export async function requestPasswordReset(email: string): Promise<{ message: st
   const res = await fetch('/api/auth/forgot-password', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ email }),
   });
   if (!res.ok) {
@@ -401,6 +390,7 @@ export async function resendVerificationCode(email: string): Promise<{ message: 
   const res = await fetch('/api/auth/resend-verification', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ email }),
   });
   if (!res.ok) {
@@ -417,6 +407,7 @@ export async function resetPassword(data: { email: string; otp: string; newPassw
   const res = await fetch('/api/auth/reset-password', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -431,11 +422,7 @@ export async function resetPassword(data: { email: string; otp: string; newPassw
  */
 export async function fetchMyCreatedEvents(): Promise<EventItem[]> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    if (!token) return [];
-    const res = await fetch('/api/events/my-created', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch('/api/events/my-created', { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       return data.events || [];
@@ -451,13 +438,10 @@ export async function fetchMyCreatedEvents(): Promise<EventItem[]> {
  */
 export async function updateEvent(eventId: string, eventData: Partial<EventItem>): Promise<EventItem | null> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
     const res = await fetch(`/api/events/${eventId}`, {
       method: 'PUT',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(eventData),
     });
     if (res.ok) {
@@ -475,13 +459,9 @@ export async function updateEvent(eventId: string, eventData: Partial<EventItem>
  */
 export async function deleteEvent(eventId: string): Promise<boolean> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    const headers: Record<string, string> = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
     const res = await fetch(`/api/events/${eventId}`, {
       method: 'DELETE',
-      headers,
+      credentials: 'include',
     });
     return res.ok;
   } catch (err) {
@@ -495,11 +475,7 @@ export async function deleteEvent(eventId: string): Promise<boolean> {
  */
 export async function fetchPendingEvents(): Promise<EventItem[]> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    if (!token) return [];
-    const res = await fetch('/api/admin/pending-events', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const res = await fetch('/api/admin/pending-events', { credentials: 'include' });
     if (res.ok) {
       const data = await res.json();
       return data.events || [];
@@ -515,11 +491,9 @@ export async function fetchPendingEvents(): Promise<EventItem[]> {
  */
 export async function approveEvent(eventId: string): Promise<boolean> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    if (!token) return false;
     const res = await fetch(`/api/admin/events/${eventId}/approve`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
     });
     return res.ok;
   } catch (err) {
@@ -533,11 +507,9 @@ export async function approveEvent(eventId: string): Promise<boolean> {
  */
 export async function rejectEvent(eventId: string): Promise<boolean> {
   try {
-    const token = localStorage.getItem('nearevent_jwt');
-    if (!token) return false;
     const res = await fetch(`/api/admin/events/${eventId}/reject`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
     });
     return res.ok;
   } catch (err) {
@@ -545,4 +517,3 @@ export async function rejectEvent(eventId: string): Promise<boolean> {
     return false;
   }
 }
-

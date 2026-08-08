@@ -88,14 +88,11 @@ export default function App() {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // 0. Restore user session from JWT on mount
+  // 0. Restore user session from HttpOnly cookie on mount
   useEffect(() => {
-    const token = localStorage.getItem('nearevent_jwt');
-    if (token) {
-      getCurrentUser(token).then((u) => {
-        if (u) setUser(u);
-      });
-    }
+    getCurrentUser().then((u) => {
+      if (u) setUser(u);
+    });
   }, []);
 
   // Local Storage Helpers for Created Events

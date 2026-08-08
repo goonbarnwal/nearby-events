@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://nearby-events-swart.vercel.app/sitemap.xml
