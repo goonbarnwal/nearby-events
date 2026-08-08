@@ -322,6 +322,11 @@ export async function refreshAuthToken(): Promise<{ token: string; user: User } 
  */
 export async function logoutUser(): Promise<boolean> {
   try {
+    try {
+      localStorage.removeItem('nearevent_jwt');
+    } catch {
+      // ignore
+    }
     const res = await fetch('/api/auth/logout', {
       method: 'POST',
       credentials: 'include',

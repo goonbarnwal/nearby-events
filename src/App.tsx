@@ -88,8 +88,13 @@ export default function App() {
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // 0. Restore user session from HttpOnly cookie on mount
+  // 0. Restore user session from HttpOnly cookie on mount and clear legacy JWT from localStorage if present
   useEffect(() => {
+    try {
+      localStorage.removeItem('nearevent_jwt');
+    } catch {
+      // ignore
+    }
     getCurrentUser().then((u) => {
       if (u) setUser(u);
     });
