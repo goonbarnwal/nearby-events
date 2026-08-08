@@ -258,8 +258,9 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Security Hardening: Disable Express header
+  // Security Hardening: Disable Express header and trust proxy
   app.disable('x-powered-by');
+  app.set('trust proxy', 1);
 
   // Security Hardening Middleware: HTTP Headers & CSP
   app.use((req, res, next) => {
@@ -275,12 +276,25 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Helper to accurately extract client IP behind reverse proxies (e.g. Vercel, Render, Cloudflare)
+  const getClientIp = (req: express.Request): string => {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length > 0) {
+      return forwarded.split(',')[0].trim();
+    }
+    if (Array.isArray(forwarded) && forwarded.length > 0) {
+      return forwarded[0].split(',')[0].trim();
+    }
+    return req.ip || req.socket.remoteAddress || 'unknown';
+  };
+
   // Sliding Window Rate Limiter
   const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
   const createRateLimiter = (maxRequests: number, windowMs: number) => {
     return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-      const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'unknown';
-      const path = req.originalUrl || req.path;
+      const ip = getClientIp(req);
+      const rawPath = req.originalUrl || req.path;
+      const path = rawPath.split('?')[0];
       const key = `${path}:${ip}`;
       const now = Date.now();
       const record = rateLimitMap.get(key);
